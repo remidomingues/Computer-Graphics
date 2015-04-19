@@ -24,10 +24,11 @@ typedef enum { RIGHT, LEFT, FORWARD, BACKWARD, UP, DOWN } Direction;
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
 int time;
+vec3 BLACK(0, 0, 0);
 
 /* Screen */
-const int SCREEN_WIDTH = 75;
-const int SCREEN_HEIGHT = 75;
+const int SCREEN_WIDTH = 500;
+const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 
 /* Model */
@@ -214,7 +215,6 @@ void Update()
 void Draw()
 {
 	Intersection closestIntersection;
-	vec3 black(0, 0, 0);
 
 	if( SDL_MUSTLOCK(screen) )
 		SDL_LockSurface(screen);
@@ -235,7 +235,7 @@ void Draw()
 				PutPixelSDL(screen, x, y, color);
 			}
 			else {
-				PutPixelSDL(screen, x, y, black);
+				PutPixelSDL(screen, x, y, BLACK);
 			}
 
 		}
@@ -254,11 +254,30 @@ float GetDistance(vec3 p1, vec3 p2) {
 	return sqrt(dx * dx + dy * dy + dz * dz);
 }
 
+/* Return true if the light cannot get to the given point because of another surface, false otherwise
+ * i.e. the vector cannot cross the same distance from the light since it intersects another surface before*/
+bool IsShady(const vec3 &r, float lightDistance) {
+	Intersection closestIntersection;
+
+	if (ClosestIntersection(lightPos, glm::normalize(r), triangles, closestIntersection)) {
+		if (closestIntersection.distance + 0.001 <= lightDistance) {
+			return true;
+		}
+	}
+	return false;
+}
+
 /* Return the light intensity hitting the given intersection from the light source */
 vec3 DirectLight(const Intersection& i) {
-	float dist = GetDistance(i.position, lightPos);
-	float div = 4 * M_PI * dist * dist;
-	float max = fmax(glm::dot(lightPos - i.position, triangles[i.triangleIndex].normal), 0);
+	float distance = GetDistance(i.position, lightPos);
+	vec3 r = lightPos - i.position;
+
+	if (IsShady(-r, distance)) {
+		return BLACK;
+	}
+	
+	float div = 4 * M_PI * distance * distance;
+	float max = fmax(glm::dot(r, triangles[i.triangleIndex].normal), 0);
 	vec3 power = lightColor;	
 	power.x = power.x * max / div;
 	power.y = power.y * max / div;
