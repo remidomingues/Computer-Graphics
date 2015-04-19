@@ -26,8 +26,8 @@ typedef enum { RIGHT, LEFT, FORWARD, BACKWARD, UP, DOWN } Direction;
 int time;
 
 /* Screen */
-const int SCREEN_WIDTH = 200;
-const int SCREEN_HEIGHT = 200;
+const int SCREEN_WIDTH = 75;
+const int SCREEN_HEIGHT = 75;
 SDL_Surface* screen;
 
 /* Model */
@@ -231,8 +231,8 @@ void Draw()
 			}
 			// Fill a pixel with the color of the closest triangle intersecting the ray, black otherwise
 			if (ClosestIntersection(cameraPos, d_ray, triangles, closestIntersection)) {
-				PutPixelSDL(screen, x, y, DirectLight(closestIntersection));
-				// triangles[closestIntersection.triangleIndex].color
+				vec3 color = DirectLight(closestIntersection) * triangles[closestIntersection.triangleIndex].color;
+				PutPixelSDL(screen, x, y, color);
 			}
 			else {
 				PutPixelSDL(screen, x, y, black);
