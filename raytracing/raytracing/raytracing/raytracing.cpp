@@ -27,8 +27,8 @@ int time;
 vec3 BLACK(0, 0, 0);
 
 /* Screen */
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
+const int SCREEN_WIDTH = 100;
+const int SCREEN_HEIGHT = 100;
 SDL_Surface* screen;
 
 /* Model */
@@ -49,6 +49,7 @@ float ROTATION = 0.3;
 /* Light */
 vec3 lightPos(0, -0.5, -0.7);
 vec3 lightColor = 14.f * vec3(1, 1, 1);
+vec3 indirectLight = 0.5f*vec3(1, 1, 1);
 
 // ----------------------------------------------------------------------------
 // FUNCTIONS
@@ -231,7 +232,7 @@ void Draw()
 			}
 			// Fill a pixel with the color of the closest triangle intersecting the ray, black otherwise
 			if (ClosestIntersection(cameraPos, d_ray, triangles, closestIntersection)) {
-				vec3 color = DirectLight(closestIntersection) * triangles[closestIntersection.triangleIndex].color;
+				vec3 color = (DirectLight(closestIntersection) + indirectLight) * triangles[closestIntersection.triangleIndex].color;
 				PutPixelSDL(screen, x, y, color);
 			}
 			else {
