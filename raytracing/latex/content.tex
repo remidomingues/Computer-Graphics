@@ -1,0 +1,159 @@
+\section*{Introduction}
+This document describes the implementation and output of a raytracer managing direct light, shadows and camera translation and rotation.
+
+The model used in this experiment is a cubic room available at \url{http://www.graphics.cornell.edu/online/box} and described in the file \textit{TestModel.h}. This model is defined by a set of colored triangles.
+
+\setcounter{section}{1} 
+
+\section{Intersection of Ray and Triangle}
+By representing rays as lines in 3D, defined by a starting point and a direction (3D vector), we are able to compute the intersection between a ray and a triangle as described below.
+
+This can be expressed as a line-plane intersection, where we check that the intersection lies in the triangle using the vectors $\vec{T_1T_3}$ and $\vec{T_1T_2}$.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.3\linewidth]{img/ray.jpg}
+\caption{Ray-triangle intersection}
+\end{figure}
+
+These computations have been implemented in the methods \textit{vec3 GetIntersection(vec3 start, vec3 dir, Triangle triangle)} which returns the intersection between a ray (start point and direction) and a triangle, and
+\textit{bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>\& triangles, Intersection\& closestIntersection)} which returns true if the ray intersects the given triangle, false otherwise, and stores the intersection in the given parameter.
+
+\section{Tracing Rays}
+Using the pinhole camera model, rays are traced from the camera, lying in position (0, 0, -3) and directed toward the \textit{z} axis. Their closest intersection are then computed in order to display the closest triangle.
+
+A focal length equal to the screen width has been used. With $width = height = 500$, we obtain the following field of views:
+\begin{equation}
+\begin{split}
+FOV_{vertical} = 2 * arctan(\frac{\frac{height}{2}}{f}) = 2 * arctan(\frac{500}{500}) = 90^\circ\\
+FOV_{horizontal} = 2 * arctan(\frac{\frac{width}{2}}{f}) = 2 * arctan(\frac{500}{500}) = 90^\circ
+\end{split}
+\end{equation}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.4\linewidth]{img/init.jpg}
+\caption{Rendering output}
+\end{figure}
+
+\section{Moving the Camera}
+A camera rotation on the \textit{y}-axis has been introduced by multiplying the rays direction vector by the rotation matrix below, with $\theta$ the camera angle.
+
+\begin{equation}
+R = \left( \begin{array}{ccc}
+\cos(\theta) & 0 & \sin(\theta) \\
+0 & 1 & 0 \\
+-\sin(\theta) & 0 & \cos(\theta) \end{array} \right)
+\end{equation}
+
+Then, obtaining the axes direction using equation \ref{eq:axes}, we can apply a camera translation by adding the corresponding axes direction to the camera position.
+
+\begin{equation}
+\label{eq:axes}
+\begin{split}
+\vec{x} = ( R[0][0], R[0][1], - R[0][2] )\\
+\vec{y} = ( R[1][0], R[1][1], R[1][2] )\\
+\vec{z} = ( - R[2][0], R[2][1], R[2][2] )
+\end{split}
+\end{equation}
+
+These translations and rotations are triggered by pressing the arrow keys.
+
+\begin{figure}[H]
+\minipage{0.24\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/backward.jpg}
+    \caption{Backward translation}
+\endminipage\hfill
+\minipage{0.24\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/right.jpg}
+    \caption{Right rotation and translation}
+\endminipage\hfill
+\minipage{0.24\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/left.jpg}
+    \caption{Left rotations and translations}
+\endminipage\hfill
+\minipage{0.24\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/forward.jpg}
+    \caption{Forward translation}
+\endminipage\hfill
+\end{figure}
+
+\section{Illumination}
+\subsection{Direct light}
+Direct light is computed by estimating the light power reaching a triangle. This data is processed for every intersection computed in sections 2 and 3. This estimation only does not take into account obstacles between the light source and the intersection, which is why the renderings below do not contain any shadow.
+
+The power \textit{D} is explained in equation \ref{eq:power}, using \textit{P} the power of the light source, i.e. energy per time unit for each color component (14.f * vec3( 1, 1, 1 ) for example), r the distance from the intersection to the light source, $\hat{n}$ the normal of the triangle and $\hat{r}$ a unit vector describing the direction from the surface point to the light source.
+\begin{equation}
+\label{eq:power}
+D = \frac{P * max(\hat{r} . \hat{n}, 0)}{4 \pi r^2}
+\end{equation}
+
+Using the same translation as described in section 4, the light source can be moved in the 6 possible directions using W, A, S, D, Q and E.
+
+\begin{figure}[H]
+\minipage{0.33\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/light1.jpg}
+    \caption{Direct light}
+\endminipage\hfill
+\minipage{0.33\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/light2.jpg}
+    \caption{Moving down}
+\endminipage\hfill
+\minipage{0.33\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/light3.jpg}
+    \caption{Moving forward}
+\endminipage\hfill
+\end{figure}
+
+Multiplying the triangle color by the power \textit{D} for each color component reaching the intersection, we obtain the following renderings.
+
+\begin{figure}[H]
+\minipage{0.33\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/light_col1.jpg}
+    \caption{Direct light}
+\endminipage\hfill
+\minipage{0.33\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/light_col2.jpg}
+    \caption{Moving down}
+\endminipage\hfill
+\minipage{0.33\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{img/light_col3.jpg}
+    \caption{Moving forward}
+\endminipage\hfill
+\end{figure}
+
+
+\subsection{Direct shadows}
+In order to make this scene more realistic, we render shadows by tracing rays from the light source to our intersections. If the intersection returned is closer than the distance between the intersection and the light source, this mean that light is hidden by another object. Light power is thus set to 0 for each color component.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.4\linewidth]{img/shadows.jpg}
+\caption{Direct shadows}
+\end{figure}
+
+\subsection{Indirect illumination}
+Eventually, to avoid black shadows and simulate the indirect illumination obtained by multiples bounces of rays from the light source, we add an indirect illumination constant to the power received by every intersection.
+
+Note that computing those bounces would result in a rendering much more realistic but also in a loss of performances.
+
+Therefore, the color of a triangle is now computed as follows, with \textit{N} the indirect illumination constant and $\rho$ the RGB vector of a triangle.
+\begin{equation}
+R = \rho * (D+N)
+\end{equation}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.4\linewidth]{img/ind_light.jpg}
+\caption{Indirect illumination}
+\end{figure}
