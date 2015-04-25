@@ -44,7 +44,8 @@ mat3 R = mat3(0, 0, 0, 0, 0, 0, 0, 0, 0);
 // Current rotation angle
 float yaw = 0;
 // Rotation constant - Angle update on the y axis for a rotation
-float ROTATION = 0.3;
+float ROTATION = 0.125;
+float TRANSLATION = 0.5;
 
 /* Light */
 vec3 lightPos(0, -0.5, -0.7);
@@ -98,7 +99,7 @@ vec3 GetIntersection(vec3 start, vec3 dir, Triangle triangle) {
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles, Intersection& closestIntersection) {
 	closestIntersection.distance = std::numeric_limits<float>::max();;
 	vec3 tmp;
-
+	
 	for (int i = 0; i < triangles.size(); ++i) {
 		tmp = GetIntersection(start, dir, triangles[i]);
 		if (tmp.x <= closestIntersection.distance && tmp.x >= 0 && tmp.y >= 0 && tmp.z >= 0 && tmp.y + tmp.z <= 1) {
@@ -122,22 +123,22 @@ void UpdateRotationMatrix()
 
 vec3 GetAxis(Direction dir) {
 	if (dir == Direction::UP) {
-		return -vec3(R[1][0], R[1][1], R[1][2]);
+		return TRANSLATION * -vec3(R[1][0], R[1][1], R[1][2]);
 	}
 	if (dir == Direction::DOWN) {
-		return vec3(R[1][0], R[1][1], R[1][2]);
+		return TRANSLATION * vec3(R[1][0], R[1][1], R[1][2]);
 	}
 	if (dir == Direction::RIGHT) {
-		return vec3(R[0][0], R[0][1], -R[0][2]);
+		return TRANSLATION * vec3(R[0][0], R[0][1], -R[0][2]);
 	}
 	if (dir == Direction::LEFT) {
-		return -vec3(R[0][0], R[0][1], -R[0][2]);
+		return TRANSLATION * -vec3(R[0][0], R[0][1], -R[0][2]);
 	}
 	if (dir == Direction::FORWARD) {
-		return vec3(-R[2][0], R[2][1], R[2][2]);
+		return TRANSLATION * vec3(-R[2][0], R[2][1], R[2][2]);
 	}
 	if (dir == Direction::BACKWARD) {
-		return -vec3(-R[2][0], R[2][1], R[2][2]);
+		return TRANSLATION * - vec3(-R[2][0], R[2][1], R[2][2]);
 	}
 }
 
@@ -210,7 +211,7 @@ void Update()
 	{
 		lightPos += GetAxis(Direction::DOWN);
 	}
-
+		
 }
 
 void Draw()
@@ -276,10 +277,10 @@ vec3 DirectLight(const Intersection& i) {
 	if (IsShady(-r, distance)) {
 		return BLACK;
 	}
-
+	
 	float div = 4 * M_PI * distance * distance;
 	float max = fmax(glm::dot(r, triangles[i.triangleIndex].normal), 0);
-	vec3 power = lightColor;
+	vec3 power = lightColor;	
 	power.x = power.x * max / div;
 	power.y = power.y * max / div;
 	power.z = power.z * max / div;
