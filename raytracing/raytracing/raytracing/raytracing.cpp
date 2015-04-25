@@ -27,8 +27,8 @@ int time;
 vec3 BLACK(0, 0, 0);
 
 /* Screen */
-const int SCREEN_WIDTH = 100;
-const int SCREEN_HEIGHT = 100;
+const int SCREEN_WIDTH = 500;
+const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 
 /* Model */
@@ -164,14 +164,14 @@ void Update()
 	}
 	if (keystate[SDLK_LEFT])
 	{
+		// Move camera to the left
+		cameraPos += GetAxis(Direction::LEFT);
+
 		/* Move the camera to the left while rotating to the right */
 		// Rotate camera to the right
 		yaw += ROTATION;
 
 		UpdateRotationMatrix();
-
-		// Move camera to the left
-		cameraPos += GetAxis(Direction::LEFT);
 	}
 	if (keystate[SDLK_RIGHT])
 	{
