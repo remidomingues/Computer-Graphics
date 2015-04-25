@@ -44,7 +44,8 @@ float focalLength = SCREEN_WIDTH;
 // Rotation angle controlling camera rotation around y-axis
 float yaw = 0;
 // Rotation constant - Angle update on the y axis for a rotation
-float ROTATION = 0.3;
+float ROTATION = 0.1;
+float TRANSLATION = 0.5;
 // Rotation matrix
 mat3 R = mat3(0, 0, 0, 0, 0, 0, 0, 0, 0);
 
@@ -95,22 +96,22 @@ void UpdateRotationMatrix()
 
 vec3 GetAxis(Direction dir) {
 	if (dir == Direction::UP) {
-		return -vec3(R[1][0], R[1][1], R[1][2]);
+		return TRANSLATION * -vec3(R[1][0], R[1][1], R[1][2]);
 	}
 	if (dir == Direction::DOWN) {
-		return vec3(R[1][0], R[1][1], R[1][2]);
+		return TRANSLATION * vec3(R[1][0], R[1][1], R[1][2]);
 	}
 	if (dir == Direction::RIGHT) {
-		return vec3(R[0][0], R[0][1], R[0][2]);
+		return TRANSLATION * vec3(R[0][0], R[0][1], R[0][2]);
 	}
 	if (dir == Direction::LEFT) {
-		return -vec3(R[0][0], R[0][1], R[0][2]);
+		return TRANSLATION * -vec3(R[0][0], R[0][1], R[0][2]);
 	}
 	if (dir == Direction::FORWARD) {
-		return vec3(R[2][0], R[2][1], R[2][2]);
+		return TRANSLATION * vec3(R[2][0], R[2][1], R[2][2]);
 	}
 	if (dir == Direction::BACKWARD) {
-		return -vec3(R[2][0], R[2][1], R[2][2]);
+		return TRANSLATION * -vec3(R[2][0], R[2][1], R[2][2]);
 	}
 }
 
@@ -120,12 +121,12 @@ void Update()
 	int t2 = SDL_GetTicks();
 	float dt = float(t2-t);
 	t = t2;
-	//cout << "Render time: " << dt << " ms." << endl;
+	cout << "Render time: " << dt << " ms." << endl;
 
 	// Camera rotation using mouse
 	if (SDL_GetRelativeMouseState(&dx, &dy) && SDL_BUTTON(SDL_BUTTON_LEFT)) {
 		if (dx != 0) {
-			yaw += ROTATION * dx / 100.0;
+			yaw += ROTATION * dx / 50;
 			UpdateRotationMatrix();
 		}
 	}
@@ -150,7 +151,7 @@ void Update()
 
 		/* Move the camera to the left while rotating to the right */
 		// Rotate camera to the right
-		yaw += ROTATION;
+		yaw -= ROTATION;
 
 		UpdateRotationMatrix();
 	}
@@ -158,7 +159,7 @@ void Update()
 	{
 		/* Move the camera to the right while rotating to the left */
 		// Rotate camera to the left
-		yaw -= ROTATION;
+		yaw += ROTATION;
 
 		UpdateRotationMatrix();
 
@@ -199,12 +200,12 @@ void VertexShader(const vec3& v, ivec2& p) {
 
 void VertexShader( const vec3& v, Pixel& p ) {
 	// Translation and rotation into the camera coordinate system
-	vec3 zinv(v);
-	vec3 v2 = (zinv - cameraPos) * R;
+	vec3 v2 = (v - cameraPos) * R;
 
 	// Perspective projection
-	p.x = focalLength * v2.x / v2.z + SCREEN_WIDTH/2;
+	p.x = focalLength * v2.x / v2.z + SCREEN_WIDTH / 2;
 	p.y = focalLength * v2.y / v2.z + SCREEN_HEIGHT / 2;
+	p.zinv = 1 / v2.z;
 }
 
 void Interpolate(ivec2 a, ivec2 b, vector<ivec2>& result)
@@ -286,7 +287,7 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
 		if (vec.y > max_y)
 			max_y = vec.y;
 	}
-	int rows = abs(abs(max_y) - abs(min_y) + 1);
+	int rows = abs(max_y - min_y) + 1;
 
 	// Resize pixels arrays
 	leftPixels.resize(rows);
@@ -307,7 +308,7 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
 	for (int i = 0; i < vertexPixels.size(); ++i) {
 		for (int j = i + 1; j < vertexPixels.size(); ++j) {
 			// Iterpolate the coordinates of each pixel of the polygon edge
-			rows = abs(abs(vertexPixels[i].y) - abs(vertexPixels[j].y)) + 1;
+			rows = abs(vertexPixels[i].y - vertexPixels[j].y) + 1;
 			vector<Pixel> line(rows);
 			Interpolate(vertexPixels[i], vertexPixels[j], line);
 
@@ -315,10 +316,14 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
 			for (const Pixel& vec : line) {
 				idx = vec.y - min_y;
 				if (idx >= 0 && idx < leftPixels.size())  {
-					if (vec.x < leftPixels[idx].x)
+					if (vec.x < leftPixels[idx].x) {
 						leftPixels[idx].x = vec.x;
-					if (vec.x > rightPixels[idx].x)
+						leftPixels[idx].zinv = vec.zinv;
+					}
+					if (vec.x > rightPixels[idx].x) {
 						rightPixels[idx].x = vec.x;
+						rightPixels[idx].zinv = vec.zinv;
+					}
 				}
 			}
 		}
@@ -326,16 +331,23 @@ void ComputePolygonRows(const vector<Pixel>& vertexPixels, vector<Pixel>& leftPi
 }
 
 void DrawPolygonRows(const vector<Pixel>& leftPixels, const vector<Pixel>& rightPixels) {
-	int y, n;
+	int y, size;
+	float z_step, z_current;
+
 	for (int i = 0; i < leftPixels.size(); ++i) {
 		y = leftPixels[i].y;
-		n = abs(abs(leftPixels[i].x) - abs(rightPixels[i].x)) + 1;
-		
-		for (int x = leftPixels[i].x; x < leftPixels[i].x + n; ++x) {
-			//if (< depthBuffer[y][x]) {
-				PutPixelSDL(screen, x, y, currentColor);
-				//depthBuffer[y][x] = ;
-			//}
+		if (y > 0 && y < SCREEN_HEIGHT) {
+			size = abs(rightPixels[i].x - leftPixels[i].x) + 1;
+			z_step = (leftPixels[i].zinv - rightPixels[i].zinv) / float(max(size - 1, 1));
+			z_current = leftPixels[i].zinv;
+
+			for (int x = leftPixels[i].x; x < leftPixels[i].x + size; ++x) {
+				if (x > 0 && x < SCREEN_WIDTH && z_current > depthBuffer[y][x]) {
+					PutPixelSDL(screen, x, y, currentColor);
+					depthBuffer[y][x] = z_current;
+				}
+				z_current -= z_step;
+			}
 		}
 	}
 }
