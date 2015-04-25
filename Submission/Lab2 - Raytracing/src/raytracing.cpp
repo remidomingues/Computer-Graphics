@@ -98,10 +98,10 @@ vec3 GetIntersection(vec3 start, vec3 dir, Triangle triangle) {
 bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles, Intersection& closestIntersection) {
 	closestIntersection.distance = std::numeric_limits<float>::max();;
 	vec3 tmp;
-	
+
 	for (int i = 0; i < triangles.size(); ++i) {
 		tmp = GetIntersection(start, dir, triangles[i]);
-		if (tmp.x < closestIntersection.distance && tmp.x >= 0 && tmp.y > 0 && tmp.z > 0 && tmp.y + tmp.z < 1) {
+		if (tmp.x <= closestIntersection.distance && tmp.x >= 0 && tmp.y >= 0 && tmp.z >= 0 && tmp.y + tmp.z <= 1) {
 			closestIntersection.distance = tmp.x;
 			closestIntersection.position = cameraPos + tmp.x * dir;
 			closestIntersection.triangleIndex = i;
@@ -210,7 +210,7 @@ void Update()
 	{
 		lightPos += GetAxis(Direction::DOWN);
 	}
-		
+
 }
 
 void Draw()
@@ -276,10 +276,10 @@ vec3 DirectLight(const Intersection& i) {
 	if (IsShady(-r, distance)) {
 		return BLACK;
 	}
-	
+
 	float div = 4 * M_PI * distance * distance;
 	float max = fmax(glm::dot(r, triangles[i.triangleIndex].normal), 0);
-	vec3 power = lightColor;	
+	vec3 power = lightColor;
 	power.x = power.x * max / div;
 	power.y = power.y * max / div;
 	power.z = power.z * max / div;

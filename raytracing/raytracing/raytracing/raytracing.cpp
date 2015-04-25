@@ -101,7 +101,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, const vector<Triangle>& triangles
 	
 	for (int i = 0; i < triangles.size(); ++i) {
 		tmp = GetIntersection(start, dir, triangles[i]);
-		if (tmp.x < closestIntersection.distance && tmp.x >= 0 && tmp.y > 0 && tmp.z > 0 && tmp.y + tmp.z < 1) {
+		if (tmp.x <= closestIntersection.distance && tmp.x >= 0 && tmp.y >= 0 && tmp.z >= 0 && tmp.y + tmp.z <= 1) {
 			closestIntersection.distance = tmp.x;
 			closestIntersection.position = cameraPos + tmp.x * dir;
 			closestIntersection.triangleIndex = i;
