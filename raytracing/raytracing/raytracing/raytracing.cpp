@@ -44,7 +44,8 @@ mat3 R = mat3(0, 0, 0, 0, 0, 0, 0, 0, 0);
 // Current rotation angle
 float yaw = 0;
 // Rotation constant - Angle update on the y axis for a rotation
-float ROTATION = 0.3;
+float ROTATION = 0.125;
+float TRANSLATION = 0.5;
 
 /* Light */
 vec3 lightPos(0, -0.5, -0.7);
@@ -122,22 +123,22 @@ void UpdateRotationMatrix()
 
 vec3 GetAxis(Direction dir) {
 	if (dir == Direction::UP) {
-		return -vec3(R[1][0], R[1][1], R[1][2]);
+		return TRANSLATION * -vec3(R[1][0], R[1][1], R[1][2]);
 	}
 	if (dir == Direction::DOWN) {
-		return vec3(R[1][0], R[1][1], R[1][2]);
+		return TRANSLATION * vec3(R[1][0], R[1][1], R[1][2]);
 	}
 	if (dir == Direction::RIGHT) {
-		return vec3(R[0][0], R[0][1], -R[0][2]);
+		return TRANSLATION * vec3(R[0][0], R[0][1], -R[0][2]);
 	}
 	if (dir == Direction::LEFT) {
-		return -vec3(R[0][0], R[0][1], -R[0][2]);
+		return TRANSLATION * -vec3(R[0][0], R[0][1], -R[0][2]);
 	}
 	if (dir == Direction::FORWARD) {
-		return vec3(-R[2][0], R[2][1], R[2][2]);
+		return TRANSLATION * vec3(-R[2][0], R[2][1], R[2][2]);
 	}
 	if (dir == Direction::BACKWARD) {
-		return -vec3(-R[2][0], R[2][1], R[2][2]);
+		return TRANSLATION * - vec3(-R[2][0], R[2][1], R[2][2]);
 	}
 }
 
