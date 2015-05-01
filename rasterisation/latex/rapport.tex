@@ -1,0 +1,59 @@
+\documentclass[a4paper,12pt,final,oneside,openright]{article}
+\usepackage{report}
+
+\newcommand{\reporttitle}{Computer graphics and interaction}
+\newcommand{\enseignants}{
+Christopher Peters
+}
+
+\newcommand{\reportauthor}{
+Rémi Domingues}
+% \newcommand{\hexanome}{H4211}
+\newcommand{\reportsubject}{}
+\newcommand{\stagetopic}{Rasterization}
+\newcommand{\dateperiod}{April $24^{th}$ - May $19^{th}$}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+\setlength{\parskip}{1ex} % Espace entre les paragraphes
+
+\hypersetup{
+    pdftitle={\reporttitle},%
+    pdfauthor={\reportauthor},%
+    pdfsubject={\reportsubject},%
+    pdfkeywords={}
+}
+
+\title{\reporttitle}
+\author{\reportauthor}
+
+\setlongtables
+\usepackage[font=small,skip=0pt]{caption}
+\usepackage{algorithm}
+\usepackage{gensymb}
+
+
+%\setcounter{tocdepth}{4}
+\begin{document}
+    \renewcommand{\chaptername}{} %\renewcommand{\thechapter}{}
+    \renewcommand{\contentsname}{Contents}
+
+    \pagestyle{empty}
+    \pagenumbering{arabic}
+    \input{title}
+    \pagebreak
+    \sloppy          % Justification moins stricte : des mots ne dépasseront pas des paragraphes
+
+    %\frontmatter
+    \thispagestyle{empty}
+    %\tableofcontents
+    \addtocontents{toc}{\protect\thispagestyle{empty}}
+    \pagebreak
+
+    %\mainmatter
+    \pagestyle{headings}
+    %\renewcommand{\chaptermark}[1]{\markboth{\MakeUppercase{\chaptername\ \thechapter.\ #1}}{}}
+    %\renewcommand{\sectionmark}[1]{\markright{\thesection{} #1}}
+
+    \input{content}
+
+    %\backmatter
+\end{document}
