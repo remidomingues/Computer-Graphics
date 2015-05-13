@@ -29,8 +29,8 @@ const vec3 SHADOW_COLOR(0, 0, 0);
 const vec3 VOID_COLOR(0.75, 0.75, 0.75);
 
 /* Screen */
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
+const int SCREEN_WIDTH = 2000;
+const int SCREEN_HEIGHT = 2000;
 SDL_Surface* screen;
 vec3 screenPixels[SCREEN_HEIGHT][SCREEN_WIDTH];
 

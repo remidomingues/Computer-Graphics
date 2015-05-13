@@ -20,11 +20,14 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	// Defines colors:
 	vec3 red(    0.75f, 0.15f, 0.15f );
 	vec3 yellow( 0.75f, 0.75f, 0.15f );
-	vec3 green(  0.15f, 0.75f, 0.15f );
+	vec3 green(  0.25f, 0.60f, 0.0f );
 	vec3 cyan(   0.15f, 0.75f, 0.75f );
-	vec3 blue(   0.15f, 0.15f, 0.75f );
+	vec3 blue(   0.05f, 0.6f, 1.0f );
 	vec3 purple( 0.75f, 0.15f, 0.75f );
-	vec3 white(  0.75f, 0.75f, 0.75f );
+	vec3 beige(0.85f, 0.85f, 0.7f);
+	vec3 mauve(0.6f, 0.45f, 0.9f);
+	vec3 white(0.75f, 0.75f, 0.75f);
+	vec3 orange(0.8f, 0.7f, 0.05f);
 
 	objects.clear();
 	objects.reserve( 5*2*3 + 2 );
@@ -45,24 +48,24 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	vec3 H(0,L,L);
 
 	// Floor:
-	objects.push_back(new Triangle(C, B, A, green, Material::Diffuse));
-	objects.push_back(new Triangle(C, D, B, green, Material::Diffuse));
+	objects.push_back(new Triangle(C, B, A, beige, Material::Diffuse));
+	objects.push_back(new Triangle(C, D, B, beige, Material::Diffuse));
 
 	// Left wall
-	objects.push_back( new Triangle( A, E, C, purple, Material::Diffuse) );
-	objects.push_back( new Triangle( C, E, G, purple, Material::Diffuse) );
+	objects.push_back( new Triangle( A, E, C, red, Material::Diffuse) );
+	objects.push_back( new Triangle( C, E, G, red, Material::Diffuse) );
 
 	// Right wall
-	objects.push_back( new Triangle( F, B, D, yellow, Material::Diffuse) );
-	objects.push_back( new Triangle( H, F, D, yellow, Material::Diffuse) );
+	objects.push_back( new Triangle( F, B, D, blue, Material::Diffuse) );
+	objects.push_back(new Triangle(H, F, D, blue, Material::Diffuse));
 
 	// Ceiling
-	objects.push_back( new Triangle( E, F, G, cyan, Material::Diffuse) );
-	objects.push_back( new Triangle( F, H, G, cyan, Material::Diffuse) );
+	objects.push_back(new Triangle(E, F, G, beige, Material::Diffuse));
+	objects.push_back(new Triangle(F, H, G, beige, Material::Diffuse));
 
 	// Back wall
-	objects.push_back( new Triangle( G, D, C, white, Material::Diffuse) );
-	objects.push_back( new Triangle( G, H, D, white, Material::Diffuse) );
+	objects.push_back(new Triangle(G, D, C, beige, Material::Diffuse));
+	objects.push_back(new Triangle(G, H, D, beige, Material::Diffuse));
 
 	// ---------------------------------------------------------------------------
 	// Short block
@@ -94,8 +97,8 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	objects.push_back(new Triangle(E, A, C, red, Material::Glass));
 
 	// TOP
-	objects.push_back(new Triangle(G, F, E, red, Material::Specular));
-	objects.push_back(new Triangle(G, H, F, red, Material::Specular));
+	objects.push_back(new Triangle(G, F, E, red, Material::Glass));
+	objects.push_back(new Triangle(G, H, F, red, Material::Glass));
 
 	// ---------------------------------------------------------------------------
 	// Tall block
@@ -111,38 +114,44 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	H = vec3(314,330,456);
 
 	// Front
-	objects.push_back(new Triangle(E, B, A, blue, Material::Specular));
-	objects.push_back(new Triangle(E, F, B, blue, Material::Specular));
+	objects.push_back(new Triangle(E, B, A, green, Material::Specular));
+	objects.push_back(new Triangle(E, F, B, green, Material::Specular));
 
 	// DOWN
-	objects.push_back(new Triangle(F, D, B, blue, Material::Diffuse));
-	objects.push_back(new Triangle(F, H, D, blue, Material::Diffuse));
+	objects.push_back(new Triangle(F, D, B, green, Material::Diffuse));
+	objects.push_back(new Triangle(F, H, D, green, Material::Diffuse));
 
 	// BACK
-	objects.push_back(new Triangle(H, C, D, blue, Material::Diffuse));
-	objects.push_back(new Triangle(H, G, C, blue, Material::Diffuse));
+	objects.push_back(new Triangle(H, C, D, green, Material::Diffuse));
+	objects.push_back(new Triangle(H, G, C, green, Material::Diffuse));
 
 	// LEFT
-	objects.push_back(new Triangle(G, E, C, blue, Material::Diffuse));
-	objects.push_back(new Triangle(E, A, C, blue, Material::Diffuse));
+	objects.push_back(new Triangle(G, E, C, green, Material::Diffuse));
+	objects.push_back(new Triangle(E, A, C, green, Material::Diffuse));
 
 	// TOP
-	objects.push_back(new Triangle(G, F, E, blue, Material::Diffuse));
-	objects.push_back(new Triangle(G, H, F, blue, Material::Diffuse));
+	objects.push_back(new Triangle(G, F, E, green, Material::Diffuse));
+	objects.push_back(new Triangle(G, H, F, green, Material::Diffuse));
 
 	// ---------------------------------------------------------------------------
-	// Spheres
+	// Spheres (left, height, deepness)
 	// On the short red cube
-	objects.push_back(new Sphere(vec3(180, 215, 200), 50, white, Material::Diffuse));
-
-	// On the floor, on the left
-	objects.push_back(new Sphere(vec3(480, 50, 100), 50, white, Material::Glass));
+	objects.push_back(new Sphere(vec3(180, 215, 200), 50, white, Material::Glass));
 
 	// On the floor, closer to the mirror
 	objects.push_back(new Sphere(vec3(330, 50, 170), 50, white, Material::Specular));
 
 	// On the tall blue block
 	objects.push_back(new Sphere(vec3(368, 380, 351), 50, white, Material::Specular));
+
+	// On the floor, on the left
+	objects.push_back(new Sphere(vec3(470, 50, 100), 50, orange, Material::Diffuse));
+
+	// Small spheres around the bigger one which is on the floor, on the left
+	// Small spheres in front of the bigger one which is on the floor, on the left
+	objects.push_back(new Sphere(vec3(515, 20, 25), 20, white, Material::Specular));
+	// Right in the wall
+	objects.push_back(new Sphere(vec3(0, L / 2, L / 2), 90, white, Material::Specular));
 
 	for (Object3D* o : objects) {
 		o->scale(L);
