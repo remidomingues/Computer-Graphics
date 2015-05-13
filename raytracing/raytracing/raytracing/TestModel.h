@@ -5,39 +5,18 @@
 
 #include <glm/glm.hpp>
 #include <vector>
+#include "Object3D.h"
+#include "Sphere.h"
+#include "Triangle.h"
 
-// Used to describe a triangular surface:
-class Triangle
-{
-public:
-	glm::vec3 v0;
-	glm::vec3 v1;
-	glm::vec3 v2;
-	glm::vec3 normal;
-	glm::vec3 color;
-
-	Triangle( glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec3 color )
-		: v0(v0), v1(v1), v2(v2), color(color)
-	{
-		ComputeNormal();
-	}
-
-	void ComputeNormal()
-	{
-		glm::vec3 e1 = v1-v0;
-		glm::vec3 e2 = v2-v0;
-		normal = glm::normalize( glm::cross( e2, e1 ) );
-	}
-};
+using glm::vec3;
 
 // Loads the Cornell Box. It is scaled to fill the volume:
 // -1 <= x <= +1
 // -1 <= y <= +1
 // -1 <= z <= +1
-void LoadTestModel( std::vector<Triangle>& triangles )
+void LoadTestModel(std::vector<Object3D*>&  objects)
 {
-	using glm::vec3;
-
 	// Defines colors:
 	vec3 red(    0.75f, 0.15f, 0.15f );
 	vec3 yellow( 0.75f, 0.75f, 0.15f );
@@ -47,8 +26,8 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	vec3 purple( 0.75f, 0.15f, 0.75f );
 	vec3 white(  0.75f, 0.75f, 0.75f );
 
-	triangles.clear();
-	triangles.reserve( 5*2*3 );
+	objects.clear();
+	objects.reserve( 5*2*3 + 2 );
 
 	// ---------------------------------------------------------------------------
 	// Room
@@ -66,24 +45,24 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	vec3 H(0,L,L);
 
 	// Floor:
-	triangles.push_back( Triangle( C, B, A, green ) );
-	triangles.push_back( Triangle( C, D, B, green ) );
+	objects.push_back(new Triangle(C, B, A, green, Material::Diffuse));
+	objects.push_back(new Triangle(C, D, B, green, Material::Diffuse));
 
 	// Left wall
-	triangles.push_back( Triangle( A, E, C, purple ) );
-	triangles.push_back( Triangle( C, E, G, purple ) );
+	objects.push_back( new Triangle( A, E, C, purple, Material::Diffuse) );
+	objects.push_back( new Triangle( C, E, G, purple, Material::Diffuse) );
 
 	// Right wall
-	triangles.push_back( Triangle( F, B, D, yellow ) );
-	triangles.push_back( Triangle( H, F, D, yellow ) );
+	objects.push_back( new Triangle( F, B, D, yellow, Material::Diffuse) );
+	objects.push_back( new Triangle( H, F, D, yellow, Material::Diffuse) );
 
 	// Ceiling
-	triangles.push_back( Triangle( E, F, G, cyan ) );
-	triangles.push_back( Triangle( F, H, G, cyan ) );
+	objects.push_back( new Triangle( E, F, G, cyan, Material::Diffuse) );
+	objects.push_back( new Triangle( F, H, G, cyan, Material::Diffuse) );
 
 	// Back wall
-	triangles.push_back( Triangle( G, D, C, white ) );
-	triangles.push_back( Triangle( G, H, D, white ) );
+	objects.push_back( new Triangle( G, D, C, white, Material::Diffuse) );
+	objects.push_back( new Triangle( G, H, D, white, Material::Diffuse) );
 
 	// ---------------------------------------------------------------------------
 	// Short block
@@ -99,24 +78,24 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	H = vec3( 82,165,225);
 
 	// Front
-	triangles.push_back( Triangle(E,B,A,red) );
-	triangles.push_back( Triangle(E,F,B,red) );
+	objects.push_back(new Triangle(E, B, A, red, Material::Glass));
+	objects.push_back(new Triangle(E, F, B, red, Material::Glass));
 
-	// Front
-	triangles.push_back( Triangle(F,D,B,red) );
-	triangles.push_back( Triangle(F,H,D,red) );
+	// Right
+	objects.push_back(new Triangle(F, D, B, red, Material::Glass));
+	objects.push_back(new Triangle(F, H, D, red, Material::Glass));
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,red) );
-	triangles.push_back( Triangle(H,G,C,red) );
+	objects.push_back(new Triangle(H, C, D, red, Material::Glass));
+	objects.push_back(new Triangle(H, G, C, red, Material::Glass));
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,red) );
-	triangles.push_back( Triangle(E,A,C,red) );
+	objects.push_back(new Triangle(G, E, C, red, Material::Glass));
+	objects.push_back(new Triangle(E, A, C, red, Material::Glass));
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,red) );
-	triangles.push_back( Triangle(G,H,F,red) );
+	objects.push_back(new Triangle(G, F, E, red, Material::Specular));
+	objects.push_back(new Triangle(G, H, F, red, Material::Specular));
 
 	// ---------------------------------------------------------------------------
 	// Tall block
@@ -132,48 +111,41 @@ void LoadTestModel( std::vector<Triangle>& triangles )
 	H = vec3(314,330,456);
 
 	// Front
-	triangles.push_back( Triangle(E,B,A,blue) );
-	triangles.push_back( Triangle(E,F,B,blue) );
+	objects.push_back(new Triangle(E, B, A, blue, Material::Specular));
+	objects.push_back(new Triangle(E, F, B, blue, Material::Specular));
 
-	// Front
-	triangles.push_back( Triangle(F,D,B,blue) );
-	triangles.push_back( Triangle(F,H,D,blue) );
+	// DOWN
+	objects.push_back(new Triangle(F, D, B, blue, Material::Diffuse));
+	objects.push_back(new Triangle(F, H, D, blue, Material::Diffuse));
 
 	// BACK
-	triangles.push_back( Triangle(H,C,D,blue) );
-	triangles.push_back( Triangle(H,G,C,blue) );
+	objects.push_back(new Triangle(H, C, D, blue, Material::Diffuse));
+	objects.push_back(new Triangle(H, G, C, blue, Material::Diffuse));
 
 	// LEFT
-	triangles.push_back( Triangle(G,E,C,blue) );
-	triangles.push_back( Triangle(E,A,C,blue) );
+	objects.push_back(new Triangle(G, E, C, blue, Material::Diffuse));
+	objects.push_back(new Triangle(E, A, C, blue, Material::Diffuse));
 
 	// TOP
-	triangles.push_back( Triangle(G,F,E,blue) );
-	triangles.push_back( Triangle(G,H,F,blue) );
+	objects.push_back(new Triangle(G, F, E, blue, Material::Diffuse));
+	objects.push_back(new Triangle(G, H, F, blue, Material::Diffuse));
 
+	// ---------------------------------------------------------------------------
+	// Spheres
+	// On the short red cube
+	objects.push_back(new Sphere(vec3(180, 215, 200), 50, white, Material::Diffuse));
 
-	// ----------------------------------------------
-	// Scale to the volume [-1,1]^3
+	// On the floor, on the left
+	objects.push_back(new Sphere(vec3(480, 50, 100), 50, white, Material::Glass));
 
-	for( size_t i=0; i<triangles.size(); ++i )
-	{
-		triangles[i].v0 *= 2/L;
-		triangles[i].v1 *= 2/L;
-		triangles[i].v2 *= 2/L;
+	// On the floor, closer to the mirror
+	objects.push_back(new Sphere(vec3(330, 50, 170), 50, white, Material::Specular));
 
-		triangles[i].v0 -= vec3(1,1,1);
-		triangles[i].v1 -= vec3(1,1,1);
-		triangles[i].v2 -= vec3(1,1,1);
+	// On the tall blue block
+	objects.push_back(new Sphere(vec3(368, 380, 351), 50, white, Material::Specular));
 
-		triangles[i].v0.x *= -1;
-		triangles[i].v1.x *= -1;
-		triangles[i].v2.x *= -1;
-
-		triangles[i].v0.y *= -1;
-		triangles[i].v1.y *= -1;
-		triangles[i].v2.y *= -1;
-
-		triangles[i].ComputeNormal();
+	for (Object3D* o : objects) {
+		o->scale(L);
 	}
 }
 
