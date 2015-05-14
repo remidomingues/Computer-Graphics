@@ -29,8 +29,8 @@ const vec3 SHADOW_COLOR(0, 0, 0);
 const vec3 VOID_COLOR(0.75, 0.75, 0.75);
 
 /* Screen */
-const int SCREEN_WIDTH = 2000;
-const int SCREEN_HEIGHT = 2000;
+const int SCREEN_WIDTH = 1000;
+const int SCREEN_HEIGHT = 1000;
 SDL_Surface* screen;
 vec3 screenPixels[SCREEN_HEIGHT][SCREEN_WIDTH];
 
@@ -54,7 +54,7 @@ const float TRANSLATION = 0.5;
 vec3 lightPos(0, -0.5, -0.7);
 const vec3 lightColor = 14.f * vec3(1, 1, 1);
 const vec3 indirectLight = 0.5f*vec3(1, 1, 1);
-const int MAX_BOUNCES = 15;
+const int MAX_BOUNCES = 20;
 const int NOT_STARTOBJIDX = -1;
 
 /* Anti-aliasing*/
@@ -69,7 +69,7 @@ typedef enum AntiAliasing {
 /* Constants*/
 const float SOBEL_THRESHOLD = 0.5;
 const vec3 INTENSITY_WEIGHTS(0.2989, 0.5870, 0.1140);
-const AntiAliasing ANTI_ALIASING = AntiAliasing::StochasticSampling16x;
+const AntiAliasing ANTI_ALIASING = AntiAliasing::Disabled;
 float screenPixelsIntensity[SCREEN_HEIGHT][SCREEN_WIDTH];
 
 // ----------------------------------------------------------------------------
@@ -283,8 +283,8 @@ void getReflectedDirection(const vec3& incident, const vec3& normal, vec3& refle
 	reflected = incident - normal * (2 * glm::dot(incident, normal));
 }
 
-// i1 and i2 incident and refracted indices
-bool getRefractionDirection(float i1, float i2, const vec3& incident, vec3& normal, vec3& next_ray) {
+// i1 and i2 incident and refracted indices. Return false if there is no refraction (total internal reflection)
+bool getReflectionRefractionDirections(float i1, float i2, const vec3& incident, vec3& normal, vec3& reflected, vec3& refracted, float* refractionPercentage) {
 	float cosI = glm::dot(incident, normal);
 	if (cosI > 0) {
 		// Incident and normal have the same direction, ray is inside the material
@@ -298,14 +298,17 @@ bool getRefractionDirection(float i1, float i2, const vec3& incident, vec3& norm
 	float eta = i1 / i2;
 	float cs2 = 1.0f - eta * eta * (1 - cosI * cosI);
 
+	getReflectedDirection(incident, normal, reflected);
+
 	if (cs2 < 0) {
 		// Total internal reflection
-		getReflectedDirection(incident, normal, next_ray);
 		return false;
 	}
 
+	*refractionPercentage = cs2;
+
 	// Refraction
-	next_ray = glm::normalize(eta * incident + (eta * cosI - sqrt(cs2)) * normal);
+	refracted = glm::normalize(eta * incident + (eta * cosI - sqrt(cs2)) * normal);
 	return true;
 }
 
@@ -325,8 +328,8 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 
 		// Glass material (refraction)
 		else if (objects[closestIntersection.objectIndex]->material == Material::Glass && bounce < MAX_BOUNCES) {
-			vec3 next_ray, normal;
-			float nextRefractiveIndice;
+			vec3 reflected, refracted, normal;
+			float nextRefractiveIndice, refractionPercentage;
 			normal = objects[closestIntersection.objectIndex]->normal(d_ray, closestIntersection.position);
 
 			// Incident material is air
@@ -338,19 +341,30 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 				nextRefractiveIndice = AIR_REFRACTIVE_INDEX;
 			}
 
-			// Compute the refracted vector direction
-			if (getRefractionDirection(refractiveIndice, nextRefractiveIndice, d_ray, normal, next_ray)) {
+			// Compute the reflected and refracted vector direction and percentage
+			if (getReflectionRefractionDirections(refractiveIndice, nextRefractiveIndice, d_ray, normal, reflected, refracted, &refractionPercentage)) {
 				// Refraction
-				bool b = getColor(closestIntersection.position, next_ray, closestIntersection.objectIndex, color, bounce + 1, nextRefractiveIndice);
-				// Glass objects are considered full, so light is reduced only when entering the object
-				if (refractiveIndice == AIR_REFRACTIVE_INDEX) {
-					color *= GLASS_REFRACTED_LIGHT;
-				}
-				return b;
+				vec3 color2;
+				bool b1 = getColor(closestIntersection.position, refracted, closestIntersection.objectIndex, color, bounce + 1, nextRefractiveIndice);
+				bool b2 = getColor(closestIntersection.position, reflected, closestIntersection.objectIndex, color2, bounce + 1, nextRefractiveIndice);
+				color = refractionPercentage * color + (1 - refractionPercentage) * color2;
+				return true;
 			}
 
 			// Reflection caused by an angle between the incident ray and the normal higher than the critical angle (internal total reflection)
-			return getColor(closestIntersection.position, next_ray, closestIntersection.objectIndex, color, bounce + 1, refractiveIndice);
+			return getColor(closestIntersection.position, reflected, closestIntersection.objectIndex, color, bounce + 1, refractiveIndice);
+		}
+		// Diffuse and specular material
+		else if (objects[closestIntersection.objectIndex]->material == Material::DiffuseSpecular && bounce < MAX_BOUNCES) {
+			const vec3 normal = objects[closestIntersection.objectIndex]->normal(d_ray, closestIntersection.position);
+			// Material color
+			color = (DirectLight(closestIntersection) + indirectLight) * objects[closestIntersection.objectIndex]->color;
+			vec3 next_ray, color2;
+			getReflectedDirection(d_ray, normal, next_ray);
+			// Reflection color
+			getColor(closestIntersection.position, next_ray, closestIntersection.objectIndex, color2, bounce + 1, refractiveIndice);
+			color = (1 - DIFFUSE_SPECULAR_REFLECTION) * color + DIFFUSE_SPECULAR_REFLECTION * color2;
+			return true;
 		}
 
 		// Diffuse material
@@ -359,6 +373,7 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 		return true;
 	}
 	else {
+		color = VOID_COLOR;
 		return false;
 	}
 }
@@ -507,13 +522,8 @@ vec3 traceRayFromCamera(float x, float y) {
 	d_ray = glm::normalize(d_ray);
 
 	// Trace a ray and retrieve the pixel color of the intersected object, after illumination and reflection bounces
-	if (getColor(cameraPos, d_ray, NOT_STARTOBJIDX, color, 0, AIR_REFRACTIVE_INDEX)) {
-		return color;
-	}
-	// Pixel has void color if the ray (or next reflected ray if specular) does not intersect any object
-	else {
-		return VOID_COLOR;
-	}
+	getColor(cameraPos, d_ray, NOT_STARTOBJIDX, color, 0, AIR_REFRACTIVE_INDEX);
+	return color;
 }
 
 void Draw()

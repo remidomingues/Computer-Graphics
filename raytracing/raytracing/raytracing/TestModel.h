@@ -52,12 +52,12 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	objects.push_back(new Triangle(C, D, B, beige, Material::Diffuse));
 
 	// Left wall
-	objects.push_back( new Triangle( A, E, C, red, Material::Diffuse) );
-	objects.push_back( new Triangle( C, E, G, red, Material::Diffuse) );
+	objects.push_back(new Triangle(A, E, C, red, Material::DiffuseSpecular));
+	objects.push_back(new Triangle(C, E, G, red, Material::DiffuseSpecular));
 
 	// Right wall
-	objects.push_back( new Triangle( F, B, D, blue, Material::Diffuse) );
-	objects.push_back(new Triangle(H, F, D, blue, Material::Diffuse));
+	objects.push_back( new Triangle( F, B, D, blue, Material::DiffuseSpecular) );
+	objects.push_back(new Triangle(H, F, D, blue, Material::DiffuseSpecular));
 
 	// Ceiling
 	objects.push_back(new Triangle(E, F, G, beige, Material::Diffuse));
@@ -147,9 +147,9 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	// On the floor, on the left
 	objects.push_back(new Sphere(vec3(470, 50, 100), 50, orange, Material::Diffuse));
 
-	// Small spheres around the bigger one which is on the floor, on the left
-	// Small spheres in front of the bigger one which is on the floor, on the left
-	objects.push_back(new Sphere(vec3(515, 20, 25), 20, white, Material::Specular));
+	// Small sphere in front of the bigger one which is on the floor, on the left
+	objects.push_back(new Sphere(vec3(515, 20, 25), 20, white, Material::Glass));
+
 	// Right in the wall
 	objects.push_back(new Sphere(vec3(0, L / 2, L / 2), 90, white, Material::Specular));
 
