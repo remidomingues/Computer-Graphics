@@ -30,8 +30,8 @@ const vec3 SHADOW_COLOR = 0.0f * vec3(1, 1, 1);
 const vec3 VOID_COLOR(0.75, 0.75, 0.75);
 
 /* Screen */
-const int SCREEN_WIDTH = 500;
-const int SCREEN_HEIGHT = 500;
+const int SCREEN_WIDTH = 1000;
+const int SCREEN_HEIGHT = 1000;
 SDL_Surface* screen;
 vec3 screenPixels[SCREEN_HEIGHT][SCREEN_WIDTH];
 
@@ -53,15 +53,16 @@ const float TRANSLATION = 0.5;
 
 /* Light */
 typedef enum LightDistribution {
-	Uniform,
-	Jittered
+	Uniform = 0,
+	Jittered = 1
 };
-LightDistribution LIGHT_DISTRIBUTION = LightDistribution::Uniform;
-const vec3 LIGHT_CENTER(0, -1.1, 0);
-vec3 LIGHT_NORMAL;
+LightDistribution LIGHTS_DISTRIBUTION = LightDistribution::Jittered;
 // Number of sampled lights will be LIGHT_ROWS * LIGHT_COLS
 int LIGHT_ROWS = 16;
 int LIGHT_COLS = 16;
+
+const vec3 LIGHT_CENTER(0, -1.1, 0);
+vec3 LIGHT_NORMAL;
 const float LIGHT_SURFACE_DIAMETER = 1;
 const float LIGHT_DIAMETER = 0.3;
 
@@ -74,17 +75,18 @@ const int NOT_STARTOBJIDX = -1;
 
 /* Anti-aliasing*/
 typedef enum AntiAliasing {
-	Disabled,
-	Supersampling8x,
-	StochasticSampling2x,
-	StochasticSampling4x,
-	StochasticSampling8x,
-	StochasticSampling16x
+	Disabled = 2,
+	Supersampling8x = 3,
+	StochasticSampling2x = 4,
+	StochasticSampling4x = 5,
+	StochasticSampling8x = 6,
+	StochasticSampling16x = 7,
+	StochasticSampling64x = 8
 };
 /* Constants*/
 const float SOBEL_THRESHOLD = 0.5;
 const vec3 INTENSITY_WEIGHTS(0.2989, 0.5870, 0.1140);
-const AntiAliasing ANTI_ALIASING = AntiAliasing::Disabled;
+const AntiAliasing ANTI_ALIASING = AntiAliasing::StochasticSampling16x;
 float screenPixelsIntensity[SCREEN_HEIGHT][SCREEN_WIDTH];
 
 // ----------------------------------------------------------------------------
@@ -225,7 +227,7 @@ void initLights() {
 	lightPositions.reserve(LIGHT_ROWS * LIGHT_COLS);
 
 	// Generate light sources positions
-	if (LIGHT_DISTRIBUTION == LightDistribution::Uniform) {
+	if (LIGHTS_DISTRIBUTION == LightDistribution::Uniform) {
 		startx = LIGHT_CENTER.x - LIGHT_DIAMETER / 2;
 		startz = LIGHT_CENTER.z - LIGHT_DIAMETER / 2;
 		endx = LIGHT_CENTER.x + LIGHT_DIAMETER / 2;
@@ -257,31 +259,65 @@ void initLights() {
 	LIGHT_NORMAL = objects[lightIdx.first]->normal(vec3(0, 0, 0));
 }
 
-// Stochastic sampling applied to light positions
-void initJitteredLightPositions() {
-	lightPositions.clear();
-	lightPositions.reserve(LIGHT_ROWS * LIGHT_ROWS);
-	// Cell limits (part of a pixel)
+// Stochastic sampling applying the specified action
+// pixelx, pixely and the return value are only relevant for antialiasing calls
+vec3 stochasticSampling(int action, int pixelx, int pixely) {
+	vec3 color(0, 0, 0);
+	int rows = 1, cols = 1;
+	// Cell limits (subparts of a pixel)
 	float x, y, startx, starty, endx, endy, stepx, stepy, factor;
 
-	
-	stepx = LIGHT_DIAMETER / LIGHT_ROWS;
-	stepy = LIGHT_DIAMETER / LIGHT_COLS;
-	startx = LIGHT_CENTER.x - LIGHT_ROWS / 2 * stepx;
-	starty = LIGHT_CENTER.x - LIGHT_COLS / 2 * stepx;
+	if (action == LightDistribution::Jittered) {
+		rows = LIGHT_ROWS;
+		cols = LIGHT_COLS;
+		stepx = LIGHT_DIAMETER / rows;
+		stepy = LIGHT_DIAMETER / cols;
+		startx = LIGHT_CENTER.x - rows / 2 * stepx;
+		starty = LIGHT_CENTER.x - cols / 2 * stepx;
+
+		lightPositions.clear();
+		lightPositions.reserve(rows * cols);
+	} else {
+		if (action == AntiAliasing::StochasticSampling2x) {
+			rows = 2;
+			cols = 1;
+		} else if (action == AntiAliasing::StochasticSampling4x) {
+			rows = 2;
+			cols = 2;
+		} else if (action == AntiAliasing::StochasticSampling8x) {
+			rows = 4;
+			cols = 2;
+		} else if (action == AntiAliasing::StochasticSampling16x) {
+			rows = 4;
+			cols = 4;
+		} else if (action == AntiAliasing::StochasticSampling64x) {
+			rows = 8;
+			cols = 8;
+		}
+
+		startx = pixelx - 0.5;
+		starty = pixely - 0.5;
+		stepx = 1.0f / rows;
+		stepy = 1.0f / cols;
+	}
+
 	endx = startx + stepx;
 	endy = starty + stepy;
 
 	// Rows
-	for (int r = 0; r < LIGHT_ROWS; ++r) {
+	for (int r = 0; r < rows; ++r) {
 		// Columns
-		for (int c = 0; c < LIGHT_COLS; ++c) {
+		for (int c = 0; c < cols; ++c) {
 			x = startx + (rand() / (float)RAND_MAX) * stepx;
 			y = starty + (rand() / (float)RAND_MAX) * stepy;
 
-			lightPositions.push_back(vec3(x, LIGHT_CENTER.y, y));
+			if (action == LightDistribution::Jittered) {
+				lightPositions.push_back(vec3(x, LIGHT_CENTER.y, y));
+			} else {
+				color += traceRayFromCamera(x, y);
+			}
 
-			if (c != LIGHT_COLS - 1) {
+			if (c != cols - 1) {
 				if (r % 2 == 0) {
 					startx += stepx;
 					endx += stepx;
@@ -295,6 +331,8 @@ void initJitteredLightPositions() {
 		starty += stepy;
 		endy += stepy;
 	}
+
+	return color / (float) (rows * cols);
 }
 
 /* Return false if the light cannot get to the given point because of another surface (shadow), true otherwise
@@ -316,8 +354,8 @@ vec3 DirectLight(const Intersection& i) {
 	float distance;
 	vec3 r, power(0, 0, 0), tmpPower;
 
-	if (LIGHT_DISTRIBUTION == LightDistribution::Jittered) {
-		initJitteredLightPositions();
+	if (LIGHTS_DISTRIBUTION == LightDistribution::Jittered) {
+		stochasticSampling(LIGHTS_DISTRIBUTION, 0, 0);
 	}
 
 	for (const vec3& lightPos : lightPositions) {
@@ -499,71 +537,6 @@ void computePixelsIntensity() {
 	}
 }
 
-// Stochastic sampling anti-aliasing (2x, 4x, 8x or 16x)
-vec3 stochasticSamplingAA(int pixelx, int pixely) {
-	vec3 color = vec3(0, 0, 0);
-	// Anti-aliasing grid
-	int rows, cols;
-	// Cell limits (part of a pixel)
-	float x, y, startx = pixelx - 0.5, starty = pixely - 0.5, endx, endy, stepx, stepy, factor;
-
-	if (ANTI_ALIASING == AntiAliasing::StochasticSampling2x) {
-		endx = pixelx + 0.5;
-		endy = pixely;
-		rows = 2;
-		cols = 1;
-		factor = 2.0f;
-	} else if (ANTI_ALIASING == AntiAliasing::StochasticSampling4x) {
-		endx = pixelx;
-		endy = pixely;
-		rows = 2;
-		cols = 2;
-		factor = 4.0f;
-	} else if(ANTI_ALIASING == AntiAliasing::StochasticSampling8x) {
-		endx = pixelx;
-		endy = pixely - 0.25;
-		rows = 4;
-		cols = 2;
-		factor = 8.0f;
-	} else {
-		// StochasticSampling16x
-		endx = pixelx - 0.25;
-		endy = pixely - 0.25;
-		rows = 4;
-		cols = 4;
-		factor = 16.0f;
-	}
-
-	stepx = endx - startx;
-	stepy = endy - starty;
-
-	// Rows
-	for (int r = 0; r < rows; ++r) {
-		// Columns
-		for (int c = 0; c < cols; ++c) {
-			x = startx + (rand() / (float) RAND_MAX) * stepx;
-			y = starty + (rand() / (float) RAND_MAX) * stepy;
-
-			color += traceRayFromCamera(x, y);
-
-			if (c != cols - 1) {
-				if (r % 2 == 0) {
-					startx += stepx;
-					endx += stepx;
-				}
-				else {
-					startx -= stepx;
-					endx -= stepx;
-				}
-			}
-		}
-		starty += stepy;
-		endy += stepy;
-	}
-
-	return color / factor;
-}
-
 // Supersampling anti-aliasing 8x
 vec3 supersamplingAA(int x, int y) {
 	vec3 color = screenPixels[y][x];
@@ -599,7 +572,7 @@ void antiAliasing() {
 		if (ANTI_ALIASING == AntiAliasing::Supersampling8x) {
 			screenPixels[p.second][p.first] = supersamplingAA(p.first, p.second);
 		} else {
-			screenPixels[p.second][p.first] = stochasticSamplingAA(p.first, p.second);
+			screenPixels[p.second][p.first] = stochasticSampling(ANTI_ALIASING, p.first, p.second);
 		}
 	}
 }
