@@ -25,8 +25,8 @@ typedef enum { RIGHT, LEFT, FORWARD, BACKWARD, UP, DOWN } Direction;
 
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
-int time_ms;
-const vec3 SHADOW_COLOR(0, 0, 0);
+const bool EXPORT_AND_EXIT = true;
+const vec3 SHADOW_COLOR = 0.0f * vec3(1, 1, 1);
 const vec3 VOID_COLOR(0.75, 0.75, 0.75);
 
 /* Screen */
@@ -52,15 +52,23 @@ const float ROTATION = 0.125;
 const float TRANSLATION = 0.5;
 
 /* Light */
-const vec3 LIGHT_CENTER(0, -0.999, -0.25);
+typedef enum LightDistribution {
+	Uniform,
+	Jittered
+};
+LightDistribution LIGHT_DISTRIBUTION = LightDistribution::Uniform;
+const vec3 LIGHT_CENTER(0, -1.1, 0);
 vec3 LIGHT_NORMAL;
-const float LIGHT_SPACING = 0.2;
-const float LIGHT_DIAMETER = 0.2;
-/* Will contain a 4x4 grid containing 16 lights*/
+// Number of sampled lights will be LIGHT_ROWS * LIGHT_COLS
+int LIGHT_ROWS = 16;
+int LIGHT_COLS = 16;
+const float LIGHT_SURFACE_DIAMETER = 1;
+const float LIGHT_DIAMETER = 0.3;
+
 vector<vec3> lightPositions;
 pair<int, int> lightIdx;
 const vec3 lightColor = 14.f * vec3(1, 1, 1);
-const vec3 indirectLight = 0.5f*vec3(1, 1, 1);
+const vec3 indirectLight = 0.55f * vec3(1, 1, 1);
 const int MAX_BOUNCES = 20;
 const int NOT_STARTOBJIDX = -1;
 
@@ -82,7 +90,7 @@ float screenPixelsIntensity[SCREEN_HEIGHT][SCREEN_WIDTH];
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
-void initLightPositions();
+void initLights();
 void UpdateRotationMatrix();
 bool ClosestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& closestIntersection);
 void Update();
@@ -98,20 +106,33 @@ int main(int argc, char* argv[])
 	screen = InitializeSDL(SCREEN_WIDTH, SCREEN_HEIGHT);
 	R[1][1] = 1;
 	UpdateRotationMatrix();
-	time_ms = SDL_GetTicks();	// Set start value for timer.
+	int time_ms = SDL_GetTicks(), t2, dt; // Timer
 
 	// Initialize the model
 	LoadTestModel(objects);
-
-	initLightPositions();
+	// Initialize the light sources and the light surface
+	initLights();
 
 	while (NoQuitMessageSDL())
 	{
 		Update();
 		Draw();
-	}
 
-	SDL_SaveBMP(screen, "screenshot.bmp");
+		t2 = SDL_GetTicks();
+		dt = float(t2 - time_ms);
+		time_ms = t2;
+		cout << "Render time: " << dt << " ms." << endl;
+
+		if (EXPORT_AND_EXIT) {
+			break;
+		}
+	}
+	
+	char c[20];
+	_itoa_s(dt, c, 10);
+	string filename("screenshot (");
+	filename.append(c).append("ms).bmp");
+	SDL_SaveBMP(screen, filename.c_str());
 
 	// Cleaning
 	for (Object3D* o : objects) {
@@ -155,12 +176,6 @@ vec3 GetAxis(Direction dir) {
 
 void Update()
 {
-	// Compute frame time:
-	int t2 = SDL_GetTicks();
-	float dt = float(t2 - time_ms);
-	time_ms = t2;
-	cout << "Render time: " << dt << " ms." << endl;
-
 	Uint8* keystate = SDL_GetKeyState(0);
 
 	/* Camera rotation and translation */
@@ -202,26 +217,37 @@ void Update()
 /* ================================ */
 /*             LIGHT                */
 /* ================================ */
-void initLightPositions() {
+void initLights() {
+	float startx, startz, endx, endz;
+
+	// Light sources
 	lightPositions.clear();
-	lightPositions.reserve(4 * 4);
+	lightPositions.reserve(LIGHT_ROWS * LIGHT_COLS);
 
-	float startx = LIGHT_CENTER.x - LIGHT_SPACING * 1.5;
-	float startz = LIGHT_CENTER.z - LIGHT_SPACING * 1.5;
-	float endx = LIGHT_CENTER.x + LIGHT_SPACING * 1.5;
-	float endz = LIGHT_CENTER.z + LIGHT_SPACING * 1.5;
+	// Generate light sources positions
+	if (LIGHT_DISTRIBUTION == LightDistribution::Uniform) {
+		startx = LIGHT_CENTER.x - LIGHT_DIAMETER / 2;
+		startz = LIGHT_CENTER.z - LIGHT_DIAMETER / 2;
+		endx = LIGHT_CENTER.x + LIGHT_DIAMETER / 2;
+		endz = LIGHT_CENTER.z + LIGHT_DIAMETER / 2;
 
-	for (float z = startz; z <= endz + 0.0001; z += LIGHT_SPACING) {
-		for (float x = startx; x <= endx + 0.0001; x += LIGHT_SPACING) {
-			lightPositions.push_back(vec3(x, LIGHT_CENTER.y, z));
+		for (float z = startz; z <= endz + 0.0001; z += LIGHT_DIAMETER / (LIGHT_ROWS - 1)) {
+			for (float x = startx; x <= endx + 0.0001; x += LIGHT_DIAMETER / (LIGHT_COLS - 1)) {
+				lightPositions.push_back(vec3(x, LIGHT_CENTER.y, z));
+			}
 		}
 	}
 
 	// Light surface
-	vec3 A(startx, LIGHT_CENTER.y - 0.0001, startz);
-	vec3 B(startx, LIGHT_CENTER.y - 0.0001, endz);
-	vec3 C(endx, LIGHT_CENTER.y - 0.0001, startz);
-	vec3 D(endx, LIGHT_CENTER.y - 0.0001, endz);
+	startx = LIGHT_CENTER.x - LIGHT_SURFACE_DIAMETER;
+	startz = LIGHT_CENTER.z - LIGHT_SURFACE_DIAMETER;
+	endx = LIGHT_CENTER.x + LIGHT_SURFACE_DIAMETER;
+	endz = LIGHT_CENTER.z + LIGHT_SURFACE_DIAMETER;
+
+	vec3 A(startx, LIGHT_CENTER.y, startz);
+	vec3 B(startx, LIGHT_CENTER.y, endz);
+	vec3 C(endx, LIGHT_CENTER.y, startz);
+	vec3 D(endx, LIGHT_CENTER.y, endz);
 
 	objects.push_back(new Triangle(D, B, C, vec3(1, 1, 1), Material::Diffuse));
 	objects.push_back(new Triangle(B, A, C, vec3(1, 1, 1), Material::Diffuse));
@@ -231,35 +257,31 @@ void initLightPositions() {
 	LIGHT_NORMAL = objects[lightIdx.first]->normal(vec3(0, 0, 0));
 }
 
+// Stochastic sampling applied to light positions
 void initJitteredLightPositions() {
 	lightPositions.clear();
-	lightPositions.reserve(4 * 4);
-	// Anti-aliasing grid
-	int rows, cols;
+	lightPositions.reserve(LIGHT_ROWS * LIGHT_ROWS);
 	// Cell limits (part of a pixel)
 	float x, y, startx, starty, endx, endy, stepx, stepy, factor;
 
-	// StochasticSampling16x
-	rows = 8;
-	cols = 8;
-	stepx = LIGHT_DIAMETER / rows;
-	stepy = LIGHT_DIAMETER / cols;
-	startx = LIGHT_CENTER.x - rows / 2 * stepx;
-	starty = LIGHT_CENTER.x - rows / 2 * stepx;
+	
+	stepx = LIGHT_DIAMETER / LIGHT_ROWS;
+	stepy = LIGHT_DIAMETER / LIGHT_COLS;
+	startx = LIGHT_CENTER.x - LIGHT_ROWS / 2 * stepx;
+	starty = LIGHT_CENTER.x - LIGHT_COLS / 2 * stepx;
 	endx = startx + stepx;
 	endy = starty + stepy;
 
-
 	// Rows
-	for (int r = 0; r < rows; ++r) {
+	for (int r = 0; r < LIGHT_ROWS; ++r) {
 		// Columns
-		for (int c = 0; c < cols; ++c) {
+		for (int c = 0; c < LIGHT_COLS; ++c) {
 			x = startx + (rand() / (float)RAND_MAX) * stepx;
 			y = starty + (rand() / (float)RAND_MAX) * stepy;
 
 			lightPositions.push_back(vec3(x, LIGHT_CENTER.y, y));
 
-			if (c != cols - 1) {
+			if (c != LIGHT_COLS - 1) {
 				if (r % 2 == 0) {
 					startx += stepx;
 					endx += stepx;
@@ -283,7 +305,6 @@ bool getLightPower(const Intersection& i, const vec3& lightPos, float lightDista
 	r = glm::normalize(lightPos - i.position);
 
 	if (ClosestIntersection(i.position, r, i.objectIndex, closestIntersection) && closestIntersection.distance + 0.001 <= lightDistance) {
-		power = SHADOW_COLOR;
 		return false;
 	}
 	power = lightColor;
@@ -292,27 +313,31 @@ bool getLightPower(const Intersection& i, const vec3& lightPos, float lightDista
 
 /* Return the light intensity hitting the given intersection from the light source */
 vec3 DirectLight(const Intersection& i) {
-	int hits = 0;
 	float distance;
 	vec3 r, power(0, 0, 0), tmpPower;
-	//initJitteredLightPositions();
+
+	if (LIGHT_DISTRIBUTION == LightDistribution::Jittered) {
+		initJitteredLightPositions();
+	}
+
 	for (const vec3& lightPos : lightPositions) {
 		distance = GetDistance(i.position, lightPos);
 
 		if (getLightPower(i, lightPos, distance, r, tmpPower)) {
 			vec3 normal = objects[i.objectIndex]->normal(i.position);
 			float div = 4 * M_PI * distance * distance;
-			float max = fmax(fmax(glm::dot(r, normal), 0) - fmax(glm::dot(r, LIGHT_NORMAL), 0), 0);
+			float max = fmax(glm::dot(r, normal), 0);
 			tmpPower.x = tmpPower.x * max / div;
 			tmpPower.y = tmpPower.y * max / div;
 			tmpPower.z = tmpPower.z * max / div;
 
 			power += tmpPower;
-			++hits;
+		} else {
+			power += SHADOW_COLOR;
 		}
 	}
 
-	return power / (float) max(1, hits);
+	return power / (float) (LIGHT_COLS * LIGHT_ROWS);
 }
 
 

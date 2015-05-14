@@ -42,10 +42,10 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	vec3 C(L,0,L);
 	vec3 D(0,0,L);
 
-	vec3 E(L,L,0);
-	vec3 F(0,L,0);
-	vec3 G(L,L,L);
-	vec3 H(0,L,L);
+	vec3 E(L,L-1,0);
+	vec3 F(0, L - 1, 0);
+	vec3 G(L, L - 1, L);
+	vec3 H(0, L - 1, L);
 
 	// Floor:
 	objects.push_back(new Triangle(C, B, A, beige, Material::Diffuse));
@@ -59,13 +59,38 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	objects.push_back( new Triangle( F, B, D, blue, Material::DiffuseSpecular) );
 	objects.push_back(new Triangle(H, F, D, blue, Material::DiffuseSpecular));
 
-	// Ceiling
-	objects.push_back(new Triangle(E, F, G, beige, Material::Diffuse));
-	objects.push_back(new Triangle(F, H, G, beige, Material::Diffuse));
-
 	// Back wall
 	objects.push_back(new Triangle(G, D, C, beige, Material::Diffuse));
 	objects.push_back(new Triangle(G, H, D, beige, Material::Diffuse));
+
+	// Ceiling
+	// Full ceiling
+	// objects.push_back(new Triangle(E, F, G, beige, Material::Diffuse));
+	// objects.push_back(new Triangle(F, H, G, beige, Material::Diffuse));
+	// Ceiling with a hole for light
+	int holeRadius = 75;
+	vec3 I(L / 2 + holeRadius, L, L / 2 - holeRadius);
+	vec3 J(L / 2 - holeRadius, L, L / 2 - holeRadius);
+	vec3 K(L / 2 + holeRadius, L, L / 2 + holeRadius);
+	vec3 L2(L / 2 - holeRadius, L, L / 2 + holeRadius);
+
+	vec3 M(L / 2 + holeRadius, L, 0);
+	vec3 N(L / 2 - holeRadius, L, 0);
+	vec3 O(L / 2 + holeRadius, L, L+5);
+	vec3 P(L / 2 - holeRadius, L, L + 5);
+	E = vec3(L + 5, L, 0);
+	F = vec3(-5, L, 0);
+	G = vec3(L+5, L, L + 5);
+	H = vec3(-5, L, L + 5);
+
+	objects.push_back(new Triangle(E, M, G, beige, Material::Diffuse));
+	objects.push_back(new Triangle(M, O, G, beige, Material::Diffuse));
+	objects.push_back(new Triangle(M, N, I, beige, Material::Diffuse));
+	objects.push_back(new Triangle(N, J, I, beige, Material::Diffuse));
+	objects.push_back(new Triangle(N, F, P, beige, Material::Diffuse));
+	objects.push_back(new Triangle(F, H, P, beige, Material::Diffuse));
+	objects.push_back(new Triangle(K, L2, O, beige, Material::Diffuse));
+	objects.push_back(new Triangle(L2, P, O, beige, Material::Diffuse));
 
 	// ---------------------------------------------------------------------------
 	// Short block
