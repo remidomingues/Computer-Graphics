@@ -70,7 +70,7 @@ public:
 		return 0;
 	}
 
-	virtual glm::vec3 normal(const glm::vec3& oppositeDir, const glm::vec3& position) {
+	virtual glm::vec3 normal(const glm::vec3& position) {
 		return _normal;
 	}
 

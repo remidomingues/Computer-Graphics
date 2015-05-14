@@ -6,6 +6,7 @@
 #include <math.h>
 #include <list>
 #include <time.h>
+#include <algorithm>
 #include "SDLauxiliary.h"
 #include "TestModel.h"
 
@@ -29,8 +30,8 @@ const vec3 SHADOW_COLOR(0, 0, 0);
 const vec3 VOID_COLOR(0.75, 0.75, 0.75);
 
 /* Screen */
-const int SCREEN_WIDTH = 1000;
-const int SCREEN_HEIGHT = 1000;
+const int SCREEN_WIDTH = 500;
+const int SCREEN_HEIGHT = 500;
 SDL_Surface* screen;
 vec3 screenPixels[SCREEN_HEIGHT][SCREEN_WIDTH];
 
@@ -51,7 +52,13 @@ const float ROTATION = 0.125;
 const float TRANSLATION = 0.5;
 
 /* Light */
-vec3 lightPos(0, -0.5, -0.7);
+const vec3 LIGHT_CENTER(0, -0.999, -0.25);
+vec3 LIGHT_NORMAL;
+const float LIGHT_SPACING = 0.2;
+const float LIGHT_DIAMETER = 0.2;
+/* Will contain a 4x4 grid containing 16 lights*/
+vector<vec3> lightPositions;
+pair<int, int> lightIdx;
 const vec3 lightColor = 14.f * vec3(1, 1, 1);
 const vec3 indirectLight = 0.5f*vec3(1, 1, 1);
 const int MAX_BOUNCES = 20;
@@ -75,6 +82,7 @@ float screenPixelsIntensity[SCREEN_HEIGHT][SCREEN_WIDTH];
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 
+void initLightPositions();
 void UpdateRotationMatrix();
 bool ClosestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& closestIntersection);
 void Update();
@@ -94,6 +102,8 @@ int main(int argc, char* argv[])
 
 	// Initialize the model
 	LoadTestModel(objects);
+
+	initLightPositions();
 
 	while (NoQuitMessageSDL())
 	{
@@ -186,33 +196,125 @@ void Update()
 		// Move camera to the right
 		cameraPos += GetAxis(Direction::RIGHT);
 	}
+}
 
-	/* Light source translation */
-	if (keystate[SDLK_w])
-	{
-		lightPos += GetAxis(Direction::FORWARD);
+
+/* ================================ */
+/*             LIGHT                */
+/* ================================ */
+void initLightPositions() {
+	lightPositions.clear();
+	lightPositions.reserve(4 * 4);
+
+	float startx = LIGHT_CENTER.x - LIGHT_SPACING * 1.5;
+	float startz = LIGHT_CENTER.z - LIGHT_SPACING * 1.5;
+	float endx = LIGHT_CENTER.x + LIGHT_SPACING * 1.5;
+	float endz = LIGHT_CENTER.z + LIGHT_SPACING * 1.5;
+
+	for (float z = startz; z <= endz + 0.0001; z += LIGHT_SPACING) {
+		for (float x = startx; x <= endx + 0.0001; x += LIGHT_SPACING) {
+			lightPositions.push_back(vec3(x, LIGHT_CENTER.y, z));
+		}
 	}
-	if (keystate[SDLK_s])
-	{
-		lightPos += GetAxis(Direction::BACKWARD);
-	}
-	if (keystate[SDLK_a])
-	{
-		lightPos += GetAxis(Direction::LEFT);
-	}
-	if (keystate[SDLK_d])
-	{
-		lightPos += GetAxis(Direction::RIGHT);
-	}
-	if (keystate[SDLK_q])
-	{
-		lightPos += GetAxis(Direction::UP);
-	}
-	if (keystate[SDLK_e])
-	{
-		lightPos += GetAxis(Direction::DOWN);
+
+	// Light surface
+	vec3 A(startx, LIGHT_CENTER.y - 0.0001, startz);
+	vec3 B(startx, LIGHT_CENTER.y - 0.0001, endz);
+	vec3 C(endx, LIGHT_CENTER.y - 0.0001, startz);
+	vec3 D(endx, LIGHT_CENTER.y - 0.0001, endz);
+
+	objects.push_back(new Triangle(D, B, C, vec3(1, 1, 1), Material::Diffuse));
+	objects.push_back(new Triangle(B, A, C, vec3(1, 1, 1), Material::Diffuse));
+	lightIdx.first = objects.size() - 2;
+	lightIdx.second = objects.size() - 1;
+
+	LIGHT_NORMAL = objects[lightIdx.first]->normal(vec3(0, 0, 0));
+}
+
+void initJitteredLightPositions() {
+	lightPositions.clear();
+	lightPositions.reserve(4 * 4);
+	// Anti-aliasing grid
+	int rows, cols;
+	// Cell limits (part of a pixel)
+	float x, y, startx, starty, endx, endy, stepx, stepy, factor;
+
+	// StochasticSampling16x
+	rows = 8;
+	cols = 8;
+	stepx = LIGHT_DIAMETER / rows;
+	stepy = LIGHT_DIAMETER / cols;
+	startx = LIGHT_CENTER.x - rows / 2 * stepx;
+	starty = LIGHT_CENTER.x - rows / 2 * stepx;
+	endx = startx + stepx;
+	endy = starty + stepy;
+
+
+	// Rows
+	for (int r = 0; r < rows; ++r) {
+		// Columns
+		for (int c = 0; c < cols; ++c) {
+			x = startx + (rand() / (float)RAND_MAX) * stepx;
+			y = starty + (rand() / (float)RAND_MAX) * stepy;
+
+			lightPositions.push_back(vec3(x, LIGHT_CENTER.y, y));
+
+			if (c != cols - 1) {
+				if (r % 2 == 0) {
+					startx += stepx;
+					endx += stepx;
+				}
+				else {
+					startx -= stepx;
+					endx -= stepx;
+				}
+			}
+		}
+		starty += stepy;
+		endy += stepy;
 	}
 }
+
+/* Return false if the light cannot get to the given point because of another surface (shadow), true otherwise
+ * i.e. the vector cannot cross the same distance from the light since it intersects another surface before */
+bool getLightPower(const Intersection& i, const vec3& lightPos, float lightDistance, vec3 &r, vec3& power) {
+	Intersection closestIntersection;
+
+	r = glm::normalize(lightPos - i.position);
+
+	if (ClosestIntersection(i.position, r, i.objectIndex, closestIntersection) && closestIntersection.distance + 0.001 <= lightDistance) {
+		power = SHADOW_COLOR;
+		return false;
+	}
+	power = lightColor;
+	return true;
+}
+
+/* Return the light intensity hitting the given intersection from the light source */
+vec3 DirectLight(const Intersection& i) {
+	int hits = 0;
+	float distance;
+	vec3 r, power(0, 0, 0), tmpPower;
+	//initJitteredLightPositions();
+	for (const vec3& lightPos : lightPositions) {
+		distance = GetDistance(i.position, lightPos);
+
+		if (getLightPower(i, lightPos, distance, r, tmpPower)) {
+			vec3 normal = objects[i.objectIndex]->normal(i.position);
+			float div = 4 * M_PI * distance * distance;
+			float max = fmax(fmax(glm::dot(r, normal), 0) - fmax(glm::dot(r, LIGHT_NORMAL), 0), 0);
+			tmpPower.x = tmpPower.x * max / div;
+			tmpPower.y = tmpPower.y * max / div;
+			tmpPower.z = tmpPower.z * max / div;
+
+			power += tmpPower;
+			++hits;
+		}
+	}
+
+	return power / (float) max(1, hits);
+}
+
 
 /* ================================ */
 /*              RAYS                */
@@ -243,39 +345,6 @@ bool ClosestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& cl
 	}
 
 	return closestIntersection.distance != std::numeric_limits<float>::max();
-}
-
-/* Return false if the light cannot get to the given point because of another surface (shadow), true otherwise
-* i.e. the vector cannot cross the same distance from the light since it intersects another surface before */
-bool getLightPower(const Intersection& i, float lightDistance, vec3 &r, vec3& power) {
-	Intersection closestIntersection;
-
-	r = glm::normalize(lightPos - i.position);
-
-	if (ClosestIntersection(i.position, r, i.objectIndex, closestIntersection) && closestIntersection.distance + 0.001 <= lightDistance) {
-		return false;
-	}
-	power = lightColor;
-	return true;
-}
-
-/* Return the light intensity hitting the given intersection from the light source */
-vec3 DirectLight(const Intersection& i) {
-	float distance = GetDistance(i.position, lightPos);
-	vec3 r, power;
-
-	if (!getLightPower(i, distance, r, power)) {
-		return SHADOW_COLOR;
-	}
-
-	vec3 normal = objects[i.objectIndex]->normal(-r, i.position);
-
-	float div = 4 * M_PI * distance * distance;
-	float max = fmax(glm::dot(r, normal), 0);
-	power.x = power.x * max / div;
-	power.y = power.y * max / div;
-	power.z = power.z * max / div;
-	return power;
 }
 
 void getReflectedDirection(const vec3& incident, const vec3& normal, vec3& reflected)
@@ -317,10 +386,15 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 
 	// Fill a pixel with the color of the closest triangle intersecting the ray, black otherwise
 	if (ClosestIntersection(start, d_ray, startObjIdx, closestIntersection)) {
+		// Light source hit
+		if (closestIntersection.objectIndex == lightIdx.first || closestIntersection.objectIndex == lightIdx.second) {
+			color = lightColor;
+			return true;
+		}
 
 		// Specular material (reflection) and max number of bounces not reached
 		if (objects[closestIntersection.objectIndex]->material == Material::Specular && bounce < MAX_BOUNCES) {
-			const vec3 normal = objects[closestIntersection.objectIndex]->normal(d_ray, closestIntersection.position);
+			const vec3 normal = objects[closestIntersection.objectIndex]->normal(closestIntersection.position);
 			vec3 next_ray;
 			getReflectedDirection(d_ray, normal, next_ray);
 			return getColor(closestIntersection.position, next_ray, closestIntersection.objectIndex, color, bounce + 1, refractiveIndice);
@@ -330,7 +404,7 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 		else if (objects[closestIntersection.objectIndex]->material == Material::Glass && bounce < MAX_BOUNCES) {
 			vec3 reflected, refracted, normal;
 			float nextRefractiveIndice, refractionPercentage;
-			normal = objects[closestIntersection.objectIndex]->normal(d_ray, closestIntersection.position);
+			normal = objects[closestIntersection.objectIndex]->normal(closestIntersection.position);
 
 			// Incident material is air
 			if (refractiveIndice == AIR_REFRACTIVE_INDEX) {
@@ -356,7 +430,7 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 		}
 		// Diffuse and specular material
 		else if (objects[closestIntersection.objectIndex]->material == Material::DiffuseSpecular && bounce < MAX_BOUNCES) {
-			const vec3 normal = objects[closestIntersection.objectIndex]->normal(d_ray, closestIntersection.position);
+			const vec3 normal = objects[closestIntersection.objectIndex]->normal(closestIntersection.position);
 			// Material color
 			color = (DirectLight(closestIntersection) + indirectLight) * objects[closestIntersection.objectIndex]->color;
 			vec3 next_ray, color2;

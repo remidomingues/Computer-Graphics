@@ -17,7 +17,7 @@ public:
 
 	/* Return the normal of the current object. The angle between the normal and the oppositeDir
 	 * vector will be higher than 90 degrees. position is only required for spheres */
-	virtual glm::vec3 normal(const glm::vec3& oppositeDir, const glm::vec3& position) = 0;
+	virtual glm::vec3 normal(const glm::vec3& position) = 0;
 
 	virtual bool intersects(vec3 start, vec3 dir, vec3& intersection) = 0;
 
