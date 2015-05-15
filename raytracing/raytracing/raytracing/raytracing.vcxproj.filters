@@ -30,8 +30,8 @@
     <ClInclude Include="Material.h">
       <Filter>Fichiers d%27en-tête</Filter>
     </ClInclude>
-    <ClInclude Include="Raytracer.h">
-      <Filter>Fichiers de ressources</Filter>
+    <ClInclude Include="Raytracing.h">
+      <Filter>Fichiers d%27en-tête</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

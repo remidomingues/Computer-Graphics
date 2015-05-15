@@ -17,8 +17,8 @@
 *		- Uniform
 *		- Jittered by stochastic sampling
 * - Anti-aliasing:
-*		- Supersampling 8x (uniform)
-*		- Stochastic sampling 2x, 4x, 8x, 16x, 64x (jittered)
+*		- Uniform 8x
+*		- Jittered by stochastic sampling 2x, 4x, 8x, 16x, 64x
 *
 * The most important constants to tweak are:
 *	- EXPORT_AND_EXIT
@@ -57,7 +57,7 @@ typedef enum LightDistribution {
 /* Anti-aliasing */
 typedef enum AntiAliasing {
 	Disabled = 2,
-	Supersampling8x = 3,
+	Uniform8x = 3,
 	StochasticSampling2x = 4,
 	StochasticSampling4x = 5,
 	StochasticSampling8x = 6,
@@ -100,7 +100,7 @@ const float ROTATION = 0.125;
 const float TRANSLATION = 0.5;
 
 /* Light */
-const vec3 LIGHT_CENTER(0, -1.1, 0);
+vec3 LIGHT_CENTER(0, -1.1, 0);
 vec3 LIGHT_NORMAL;
 const float LIGHT_SURFACE_DIAMETER = 1;
 const float LIGHT_DIAMETER = 0.3;
@@ -118,6 +118,9 @@ float DIFFUSE_SPECULAR_REFLECTION = 0.18;
 const vec3 SHADOW_COLOR = 0.0f * vec3(1, 1, 1);
 const vec3 VOID_COLOR(0.75, 0.75, 0.75);
 
+/* Progress notification */
+bool DISPLAY_PROGRESS = true;
+int PROGRESS_STEP = 1;
 
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
@@ -155,12 +158,13 @@ void computePixelsIntensity();
 vec3 directLight(const Intersection& i);
 void draw();
 vec3 getAxis(Direction dir);
-bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color, int bounce, float refractiveIndice);
+bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color, int bounce, float refractiveIndice, float weight);
 float getDistance(vec3 p1, vec3 p2);
 bool getLightPower(const Intersection& i, const vec3& lightPos, float lightDistance, vec3 &r, vec3& power);
 void getReflectedDirection(const vec3& incident, const vec3& normal, vec3& reflected);
 bool getReflectionRefractionDirections(float i1, float i2, const vec3& incident, vec3& normal, vec3& reflected, vec3& refracted, float* refractionPercentage);
 void initLights();
+void initLightSurface();
 float sobelOperator(int x, int y);
 vec3 stochasticSampling(int action, int pixelx, int pixely);
 vec3 supersamplingAA(int x, int y);

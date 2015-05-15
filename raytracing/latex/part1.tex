@@ -1,18 +1,18 @@
 \section*{Introduction}
 This document describes the implementation and output of a raytracer managing direct light, shadows and camera translation and rotation.
 
-The model used in this experiment is a cubic room available at \url{http://www.graphics.cornell.edu/online/box} and described in the file \textit{TestModel.h}. This model is defined by a set of colored triangles.
+The model used in this experiment is a cubic room available at \url{http://www.graphics.cornell.edu/online/box} and described in the file \textit{TestModel.h}.
 
-\setcounter{section}{1} 
+\setcounter{section}{0} 
 
-\section{Intersection of Ray and Triangle}
+\section{Ray-triangle intersection}
 By representing rays as lines in 3D, defined by a starting point and a direction (3D vector), we are able to compute the intersection between a ray and a triangle as described below.
 
 This can be expressed as a line-plane intersection, where we check that the intersection lies in the triangle using the vectors $\vec{T_1T_3}$ and $\vec{T_1T_2}$.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.3\linewidth]{img/ray.jpg}
+\includegraphics[width=0.2\linewidth]{img/ray.jpg}
 \caption{Ray-triangle intersection}
 \end{figure}
 
@@ -138,7 +138,7 @@ In order to make this scene more realistic, we render shadows by tracing rays fr
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.4\linewidth]{img/shadows.jpg}
+\includegraphics[width=0.35\linewidth]{img/shadows.jpg}
 \caption{Direct shadows}
 \end{figure}
 
@@ -154,6 +154,6 @@ R = \rho * (D+N)
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.4\linewidth]{img/ind_light.jpg}
+\includegraphics[width=0.35\linewidth]{img/ind_light.jpg}
 \caption{Indirect illumination}
 \end{figure}

@@ -44,16 +44,21 @@ void LoadTestModel(std::vector<Object3D*>&  objects) {
 
 	// ---------------------------------------------------------------------------
 	// Room
-
 	float L = 555;			// Length of Cornell Box side.
+	bool CLOSED_BOX = true;		// true if the Cornell Box is closed behind the camera (mirror effect)
 
-	vec3 A(L,0,0);
-	vec3 B(0,0,0);
+	float z_front = 0;
+	if (CLOSED_BOX) {
+		z_front = -L;
+	}
+
+	vec3 A(L, 0, z_front);
+	vec3 B(0, 0, z_front);
 	vec3 C(L,0,L);
 	vec3 D(0,0,L);
 
-	vec3 E(L,L-1,0);
-	vec3 F(0, L - 1, 0);
+	vec3 E(L, L - 1, z_front);
+	vec3 F(0, L - 1, z_front);
 	vec3 G(L, L - 1, L);
 	vec3 H(0, L - 1, L);
 
@@ -85,12 +90,12 @@ void LoadTestModel(std::vector<Object3D*>&  objects) {
 	vec3 K(L / 2 + holeRadius, L, L / 2 + holeRadius);
 	vec3 L2(L / 2 - holeRadius, L, L / 2 + holeRadius);
 
-	vec3 M(L / 2 + holeRadius, L, 0);
-	vec3 N(L / 2 - holeRadius, L, 0);
+	vec3 M(L / 2 + holeRadius, L, z_front);
+	vec3 N(L / 2 - holeRadius, L, z_front);
 	vec3 O(L / 2 + holeRadius, L, L+5);
 	vec3 P(L / 2 - holeRadius, L, L + 5);
-	E = vec3(L + 5, L, 0);
-	F = vec3(-5, L, 0);
+	E = vec3(L + 5, L, z_front);
+	F = vec3(-5, L, z_front);
 	G = vec3(L+5, L, L + 5);
 	H = vec3(-5, L, L + 5);
 
@@ -118,6 +123,12 @@ void LoadTestModel(std::vector<Object3D*>&  objects) {
 	objects.push_back(new Triangle(L2, O, P, beige, Material::Specular));
 	objects.push_back(new Triangle(I, M, O, beige, Material::Specular));
 	objects.push_back(new Triangle(K, I, O, beige, Material::Specular));
+
+	// Back wall
+	if (CLOSED_BOX) {
+		objects.push_back(new Triangle(F, E, A, beige, Material::DiffuseSpecular));
+		objects.push_back(new Triangle(F, A, B, beige, Material::DiffuseSpecular));
+	}
 
 	// ---------------------------------------------------------------------------
 	// Short block

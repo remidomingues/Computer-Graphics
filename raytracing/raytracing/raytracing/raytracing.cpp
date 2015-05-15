@@ -5,7 +5,7 @@
 #include <math.h>
 #include <time.h>
 #include "SDLauxiliary.h"
-#include "Raytracer.h"
+#include "Raytracing.h"
 
 /* ================================ */
 /*             CAMERA               */
@@ -58,10 +58,6 @@ void update()
 	}
 	if (keystate[SDLK_LEFT])
 	{
-		// Move camera to the left
-		cameraPos += getAxis(Direction::LEFT);
-
-		/* Move the camera to the left while rotating to the right */
 		// Rotate camera to the right
 		yaw += ROTATION;
 
@@ -69,14 +65,42 @@ void update()
 	}
 	if (keystate[SDLK_RIGHT])
 	{
-		/* Move the camera to the right while rotating to the left */
 		// Rotate camera to the left
 		yaw -= ROTATION;
 
 		updateRotationMatrix();
+	}
 
-		// Move camera to the right
-		cameraPos += getAxis(Direction::RIGHT);
+	/* Light translation */
+	if (keystate[SDLK_w])
+	{
+		LIGHT_CENTER += getAxis(Direction::FORWARD);
+		initLights();
+	}
+	if (keystate[SDLK_s])
+	{
+		LIGHT_CENTER += getAxis(Direction::BACKWARD);
+		initLights();
+	}
+	if (keystate[SDLK_a])
+	{
+		LIGHT_CENTER += getAxis(Direction::LEFT);
+		initLights();
+	}
+	if (keystate[SDLK_d])
+	{
+		LIGHT_CENTER += getAxis(Direction::RIGHT);
+		initLights();
+	}
+	if (keystate[SDLK_q])
+	{
+		LIGHT_CENTER += getAxis(Direction::UP);
+		initLights();
+	}
+	if (keystate[SDLK_e])
+	{
+		LIGHT_CENTER += getAxis(Direction::DOWN);
+		initLights();
 	}
 }
 
@@ -87,6 +111,7 @@ void update()
 /* Add the light surface to the model and generate the light sources
  * if a uniform distribution is specified */
 void initLights() {
+	if (LIGHTS_DISTRIBUTION == LightDistribution::Uniform) {
 	float startx, startz, endx, endz;
 
 	// Light sources
@@ -94,7 +119,6 @@ void initLights() {
 	lightPositions.reserve(LIGHT_ROWS * LIGHT_COLS);
 
 	// Generate light sources positions
-	if (LIGHTS_DISTRIBUTION == LightDistribution::Uniform) {
 		startx = LIGHT_CENTER.x - LIGHT_DIAMETER / 2;
 		startz = LIGHT_CENTER.z - LIGHT_DIAMETER / 2;
 		endx = LIGHT_CENTER.x + LIGHT_DIAMETER / 2;
@@ -106,12 +130,14 @@ void initLights() {
 			}
 		}
 	}
+}
 
+void initLightSurface() {
 	// Light surface
-	startx = LIGHT_CENTER.x - LIGHT_SURFACE_DIAMETER;
-	startz = LIGHT_CENTER.z - LIGHT_SURFACE_DIAMETER;
-	endx = LIGHT_CENTER.x + LIGHT_SURFACE_DIAMETER;
-	endz = LIGHT_CENTER.z + LIGHT_SURFACE_DIAMETER;
+	float startx = LIGHT_CENTER.x - LIGHT_SURFACE_DIAMETER;
+	float startz = LIGHT_CENTER.z - LIGHT_SURFACE_DIAMETER;
+	float endx = LIGHT_CENTER.x + LIGHT_SURFACE_DIAMETER;
+	float endz = LIGHT_CENTER.z + LIGHT_SURFACE_DIAMETER;
 
 	vec3 A(startx, LIGHT_CENTER.y, startz);
 	vec3 B(startx, LIGHT_CENTER.y, endz);
@@ -321,8 +347,12 @@ bool getReflectionRefractionDirections(float i1, float i2, const vec3& incident,
  * coloc is initialized with the color of the object hit (may be multiple bounces if refraction or reflection)
  * refractiveIndice is the current indice
  */
-bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color, int bounce, float refractiveIndice) {
+bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color, int bounce, float refractiveIndice, float weight) {
 	Intersection intersection;
+
+	if (weight < 0.001f) {
+		color = VOID_COLOR;
+	}
 
 	// Fill a pixel with the color of the closest triangle intersecting the ray, black otherwise
 	if (closestIntersection(start, d_ray, startObjIdx, intersection)) {
@@ -337,7 +367,7 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 			const vec3 normal = objects[intersection.objectIndex]->normal(intersection.position);
 			vec3 next_ray;
 			getReflectedDirection(d_ray, normal, next_ray);
-			return getColor(intersection.position, next_ray, intersection.objectIndex, color, bounce + 1, refractiveIndice);
+			return getColor(intersection.position, next_ray, intersection.objectIndex, color, bounce + 1, refractiveIndice, weight);
 		}
 
 		// Glass material (refraction)
@@ -359,15 +389,16 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 			if (getReflectionRefractionDirections(refractiveIndice, nextRefractiveIndice, d_ray, normal, reflected, refracted, &refractionPercentage)) {
 				// Refraction
 				vec3 color2;
-				bool b1 = getColor(intersection.position, refracted, intersection.objectIndex, color, bounce + 1, nextRefractiveIndice);
-				bool b2 = getColor(intersection.position, reflected, intersection.objectIndex, color2, bounce + 1, nextRefractiveIndice);
+				bool b1 = getColor(intersection.position, refracted, intersection.objectIndex, color, bounce + 1, nextRefractiveIndice, weight * refractionPercentage);
+				bool b2 = getColor(intersection.position, reflected, intersection.objectIndex, color2, bounce + 1, nextRefractiveIndice, weight * (1 - refractionPercentage));
 				color = refractionPercentage * color + (1 - refractionPercentage) * color2;
 				return true;
 			}
 
 			// Reflection caused by an angle between the incident ray and the normal higher than the critical angle (internal total reflection)
-			return getColor(intersection.position, reflected, intersection.objectIndex, color, bounce + 1, refractiveIndice);
+			return getColor(intersection.position, reflected, intersection.objectIndex, color, bounce + 1, refractiveIndice, weight);
 		}
+
 		// Diffuse and specular material
 		else if (objects[intersection.objectIndex]->material == Material::DiffuseSpecular && bounce < MAX_BOUNCES) {
 			const vec3 normal = objects[intersection.objectIndex]->normal(intersection.position);
@@ -376,7 +407,7 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 			vec3 next_ray, color2;
 			getReflectedDirection(d_ray, normal, next_ray);
 			// Reflection color
-			getColor(intersection.position, next_ray, intersection.objectIndex, color2, bounce + 1, refractiveIndice);
+			getColor(intersection.position, next_ray, intersection.objectIndex, color2, bounce + 1, refractiveIndice, weight * DIFFUSE_SPECULAR_REFLECTION);
 			color = (1 - DIFFUSE_SPECULAR_REFLECTION) * color + DIFFUSE_SPECULAR_REFLECTION * color2;
 			return true;
 		}
@@ -448,7 +479,7 @@ void antiAliasing() {
 
 	// Apply anti-aliasing by shooting new rays around the edge and averaging the values
 	for (pair<int, int> p : aliasedEdges) {
-		if (ANTI_ALIASING == AntiAliasing::Supersampling8x) {
+		if (ANTI_ALIASING == AntiAliasing::Uniform8x) {
 			screenPixels[p.second][p.first] = supersamplingAA(p.first, p.second);
 		} else {
 			screenPixels[p.second][p.first] = stochasticSampling(ANTI_ALIASING, p.first, p.second);
@@ -475,7 +506,7 @@ vec3 traceRayFromCamera(float x, float y) {
 	d_ray = glm::normalize(d_ray);
 
 	// Trace a ray and retrieve the pixel color of the intersected object, after illumination and reflection bounces
-	getColor(cameraPos, d_ray, NOT_STARTOBJIDX, color, 0, AIR_REFRACTIVE_INDEX);
+	getColor(cameraPos, d_ray, NOT_STARTOBJIDX, color, 0, AIR_REFRACTIVE_INDEX, 1.0f);
 	return color;
 }
 
@@ -483,6 +514,8 @@ vec3 traceRayFromCamera(float x, float y) {
 void draw()
 {
 	vec3 color;
+	double tmp;
+	int progress;
 
 	if (SDL_MUSTLOCK(screen))
 		SDL_LockSurface(screen);
@@ -490,6 +523,13 @@ void draw()
 	for (int y = 0; y < SCREEN_HEIGHT; ++y) {
 		for (int x = 0; x < SCREEN_WIDTH; ++x) {
 			screenPixels[y][x] = traceRayFromCamera(x, y);
+		}
+
+		// Display percentage of computations achieved (biased by bounces)
+		tmp = (y + 1) * 100 / (float) SCREEN_HEIGHT;
+		progress = tmp;
+		if (DISPLAY_PROGRESS && progress == tmp && progress % PROGRESS_STEP == 0) {
+			cout << progress << "%" << endl;
 		}
 	}
 
@@ -524,6 +564,7 @@ int main(int argc, char* argv[])
 	LoadTestModel(objects);
 	// Initialize the light sources and the light surface
 	initLights();
+	initLightSurface();
 
 	while (NoQuitMessageSDL())
 	{
