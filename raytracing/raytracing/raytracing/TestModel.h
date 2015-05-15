@@ -1,23 +1,33 @@
 #ifndef TEST_MODEL_CORNEL_BOX_H
 #define TEST_MODEL_CORNEL_BOX_H
 
-// Defines a simple test model: The Cornel Box
-
 #include <glm/glm.hpp>
 #include <vector>
 #include "Object3D.h"
 #include "Sphere.h"
 #include "Triangle.h"
 
+// Cornell Box model
+
 using glm::vec3;
 
-// Loads the Cornell Box. It is scaled to fill the volume:
-// -1 <= x <= +1
-// -1 <= y <= +1
-// -1 <= z <= +1
-void LoadTestModel(std::vector<Object3D*>&  objects)
-{
-	// Defines colors:
+/* Loads the Cornell Box, then scale it to fill the volume:
+ * -1 <= x <= +1
+ * -1 <= y <= +1
+ * -1 <= z <= +1
+ *
+ * Axis:
+ * - Before scaling:
+ *		- Parnell box size: 555
+ *		- Origin: (right, bottom, front)
+ *		- Directions: (x: left, y: top: z: deepness)
+ * - After scaling:
+ *		- Parnell box size: 2
+ *		- Origin: center of the scene on the three axis
+ *		- Directions: (x: right, y: down: z: deepness)
+ */
+void LoadTestModel(std::vector<Object3D*>&  objects) {
+	// Colors
 	vec3 red(    0.75f, 0.15f, 0.15f );
 	vec3 yellow( 0.75f, 0.75f, 0.15f );
 	vec3 green(  0.25f, 0.60f, 0.0f );
@@ -48,25 +58,26 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	vec3 H(0, L - 1, L);
 
 	// Floor:
-	objects.push_back(new Triangle(C, B, A, beige, Material::Diffuse));
-	objects.push_back(new Triangle(C, D, B, beige, Material::Diffuse));
+	objects.push_back(new Triangle(C, B, A, beige, Material::DiffuseSpecular));
+	objects.push_back(new Triangle(C, D, B, beige, Material::DiffuseSpecular));
 
 	// Left wall
 	objects.push_back(new Triangle(A, E, C, red, Material::DiffuseSpecular));
 	objects.push_back(new Triangle(C, E, G, red, Material::DiffuseSpecular));
 
 	// Right wall
-	objects.push_back( new Triangle( F, B, D, blue, Material::DiffuseSpecular) );
+	objects.push_back(new Triangle(F, B, D, blue, Material::DiffuseSpecular));
 	objects.push_back(new Triangle(H, F, D, blue, Material::DiffuseSpecular));
 
 	// Back wall
-	objects.push_back(new Triangle(G, D, C, beige, Material::Diffuse));
-	objects.push_back(new Triangle(G, H, D, beige, Material::Diffuse));
+	objects.push_back(new Triangle(G, D, C, beige, Material::DiffuseSpecular));
+	objects.push_back(new Triangle(G, H, D, beige, Material::DiffuseSpecular));
 
 	// Ceiling
 	// Full ceiling
-	// objects.push_back(new Triangle(E, F, G, beige, Material::Diffuse));
-	// objects.push_back(new Triangle(F, H, G, beige, Material::Diffuse));
+	// objects.push_back(new Triangle(E, F, G, beige, Material::DiffuseSpecular));
+	// objects.push_back(new Triangle(F, H, G, beige, Material::DiffuseSpecular));
+
 	// Ceiling with a hole for light
 	int holeRadius = 75;
 	vec3 I(L / 2 + holeRadius, L, L / 2 - holeRadius);
@@ -83,14 +94,30 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	G = vec3(L+5, L, L + 5);
 	H = vec3(-5, L, L + 5);
 
-	objects.push_back(new Triangle(E, M, G, beige, Material::Diffuse));
-	objects.push_back(new Triangle(M, O, G, beige, Material::Diffuse));
-	objects.push_back(new Triangle(M, N, I, beige, Material::Diffuse));
-	objects.push_back(new Triangle(N, J, I, beige, Material::Diffuse));
-	objects.push_back(new Triangle(N, F, P, beige, Material::Diffuse));
-	objects.push_back(new Triangle(F, H, P, beige, Material::Diffuse));
-	objects.push_back(new Triangle(K, L2, O, beige, Material::Diffuse));
-	objects.push_back(new Triangle(L2, P, O, beige, Material::Diffuse));
+	objects.push_back(new Triangle(E, M, G, beige, Material::DiffuseSpecular));
+	objects.push_back(new Triangle(M, O, G, beige, Material::DiffuseSpecular));
+	objects.push_back(new Triangle(M, N, I, beige, Material::DiffuseSpecular));
+	objects.push_back(new Triangle(N, J, I, beige, Material::DiffuseSpecular));
+	objects.push_back(new Triangle(N, F, P, beige, Material::DiffuseSpecular));
+	objects.push_back(new Triangle(F, H, P, beige, Material::DiffuseSpecular));
+	objects.push_back(new Triangle(K, L2, O, beige, Material::DiffuseSpecular));
+	objects.push_back(new Triangle(L2, P, O, beige, Material::DiffuseSpecular));
+
+	// Small rectangles around the hole in the ceiling
+	int lightBoxHeight = 5;
+	M = vec3(L / 2 + holeRadius, L - lightBoxHeight, L / 2 - holeRadius);
+	N = vec3(L / 2 - holeRadius, L - lightBoxHeight, L / 2 - holeRadius);
+	O = vec3(L / 2 + holeRadius, L - lightBoxHeight, L / 2 + holeRadius);
+	P = vec3(L / 2 - holeRadius, L - lightBoxHeight, L / 2 + holeRadius);
+
+	objects.push_back(new Triangle(I, J, M, beige, Material::Specular));
+	objects.push_back(new Triangle(J, N, M, beige, Material::Specular));
+	objects.push_back(new Triangle(J, L2, N, beige, Material::Specular));
+	objects.push_back(new Triangle(L2, P, N, beige, Material::Specular));
+	objects.push_back(new Triangle(L2, K, O, beige, Material::Specular));
+	objects.push_back(new Triangle(L2, O, P, beige, Material::Specular));
+	objects.push_back(new Triangle(I, M, O, beige, Material::Specular));
+	objects.push_back(new Triangle(K, I, O, beige, Material::Specular));
 
 	// ---------------------------------------------------------------------------
 	// Short block
@@ -159,7 +186,7 @@ void LoadTestModel(std::vector<Object3D*>&  objects)
 	objects.push_back(new Triangle(G, H, F, green, Material::Diffuse));
 
 	// ---------------------------------------------------------------------------
-	// Spheres (left, height, deepness)
+	// Spheres
 	// On the short red cube
 	objects.push_back(new Sphere(vec3(180, 215, 200), 50, white, Material::Glass));
 

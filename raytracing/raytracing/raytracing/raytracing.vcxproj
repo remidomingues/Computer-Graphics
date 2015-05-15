@@ -15,11 +15,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="raytracing.cpp" />
+    <ClCompile Include="Raytracing.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Material.h" />
     <ClInclude Include="Object3D.h" />
+    <ClInclude Include="Raytracer.h" />
     <ClInclude Include="Sphere.h" />
     <ClInclude Include="TestModel.h" />
     <ClInclude Include="Triangle.h" />

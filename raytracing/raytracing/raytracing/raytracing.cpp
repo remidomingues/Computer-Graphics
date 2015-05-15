@@ -1,154 +1,17 @@
 #define _USE_MATH_DEFINES
 
-#include <iostream>
-#include <glm/glm.hpp>
-#include <SDL.h>
-#include <math.h>
-#include <list>
-#include <time.h>
 #include <algorithm>
+#include <list>
+#include <math.h>
+#include <time.h>
 #include "SDLauxiliary.h"
-#include "TestModel.h"
-
-using namespace std;
-using glm::vec3;
-using glm::mat3;
-
-struct Intersection
-{
-	vec3 position;
-	float distance;
-	int objectIndex;
-};
-
-typedef enum { RIGHT, LEFT, FORWARD, BACKWARD, UP, DOWN } Direction;
-
-// ----------------------------------------------------------------------------
-// GLOBAL VARIABLES
-const bool EXPORT_AND_EXIT = true;
-const vec3 SHADOW_COLOR = 0.0f * vec3(1, 1, 1);
-const vec3 VOID_COLOR(0.75, 0.75, 0.75);
-
-/* Screen */
-const int SCREEN_WIDTH = 1000;
-const int SCREEN_HEIGHT = 1000;
-SDL_Surface* screen;
-vec3 screenPixels[SCREEN_HEIGHT][SCREEN_WIDTH];
-
-/* Model */
-vector<Object3D*> objects;
-
-/* Camera */
-// Focal length
-const float focalLength = SCREEN_WIDTH;
-// Position
-vec3 cameraPos(0, 0, -3);
-// Rotation matrix
-mat3 R = mat3(0, 0, 0, 0, 0, 0, 0, 0, 0);
-// Current rotation angle
-float yaw = 0;
-// Rotation constant - Angle update on the y axis for a rotation
-const float ROTATION = 0.125;
-const float TRANSLATION = 0.5;
-
-/* Light */
-typedef enum LightDistribution {
-	Uniform = 0,
-	Jittered = 1
-};
-LightDistribution LIGHTS_DISTRIBUTION = LightDistribution::Jittered;
-// Number of sampled lights will be LIGHT_ROWS * LIGHT_COLS
-int LIGHT_ROWS = 16;
-int LIGHT_COLS = 16;
-
-const vec3 LIGHT_CENTER(0, -1.1, 0);
-vec3 LIGHT_NORMAL;
-const float LIGHT_SURFACE_DIAMETER = 1;
-const float LIGHT_DIAMETER = 0.3;
-
-vector<vec3> lightPositions;
-pair<int, int> lightIdx;
-const vec3 lightColor = 14.f * vec3(1, 1, 1);
-const vec3 indirectLight = 0.55f * vec3(1, 1, 1);
-const int MAX_BOUNCES = 20;
-const int NOT_STARTOBJIDX = -1;
-
-/* Anti-aliasing*/
-typedef enum AntiAliasing {
-	Disabled = 2,
-	Supersampling8x = 3,
-	StochasticSampling2x = 4,
-	StochasticSampling4x = 5,
-	StochasticSampling8x = 6,
-	StochasticSampling16x = 7,
-	StochasticSampling64x = 8
-};
-/* Constants*/
-const float SOBEL_THRESHOLD = 0.5;
-const vec3 INTENSITY_WEIGHTS(0.2989, 0.5870, 0.1140);
-const AntiAliasing ANTI_ALIASING = AntiAliasing::StochasticSampling16x;
-float screenPixelsIntensity[SCREEN_HEIGHT][SCREEN_WIDTH];
-
-// ----------------------------------------------------------------------------
-// FUNCTIONS
-
-void initLights();
-void UpdateRotationMatrix();
-bool ClosestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& closestIntersection);
-void Update();
-void Draw();
-vec3 GetAxis(Direction dir);
-float GetDistance(vec3 p1, vec3 p2);
-vec3 DirectLight(const Intersection& i);
-vec3 traceRayFromCamera(float x, float y);
-
-int main(int argc, char* argv[])
-{
-	srand(time(NULL));
-	screen = InitializeSDL(SCREEN_WIDTH, SCREEN_HEIGHT);
-	R[1][1] = 1;
-	UpdateRotationMatrix();
-	int time_ms = SDL_GetTicks(), t2, dt; // Timer
-
-	// Initialize the model
-	LoadTestModel(objects);
-	// Initialize the light sources and the light surface
-	initLights();
-
-	while (NoQuitMessageSDL())
-	{
-		Update();
-		Draw();
-
-		t2 = SDL_GetTicks();
-		dt = float(t2 - time_ms);
-		time_ms = t2;
-		cout << "Render time: " << dt << " ms." << endl;
-
-		if (EXPORT_AND_EXIT) {
-			break;
-		}
-	}
-	
-	char c[20];
-	_itoa_s(dt, c, 10);
-	string filename("screenshot (");
-	filename.append(c).append("ms).bmp");
-	SDL_SaveBMP(screen, filename.c_str());
-
-	// Cleaning
-	for (Object3D* o : objects) {
-		free(o);
-	}
-
-	return 0;
-}
+#include "Raytracer.h"
 
 /* ================================ */
 /*             CAMERA               */
 /* ================================ */
-/* Update the rotation matrix */
-void UpdateRotationMatrix()
+/* update the rotation matrix */
+void updateRotationMatrix()
 {
 	R[0][0] = cos(yaw);
 	R[0][2] = sin(yaw);
@@ -156,7 +19,8 @@ void UpdateRotationMatrix()
 	R[2][2] = cos(yaw);
 }
 
-vec3 GetAxis(Direction dir) {
+/* Return a 3D vector corresponding to the specified axis according to camera rotation */
+vec3 getAxis(Direction dir) {
 	if (dir == Direction::UP) {
 		return TRANSLATION * -vec3(R[1][0], R[1][1], R[1][2]);
 	}
@@ -176,7 +40,8 @@ vec3 GetAxis(Direction dir) {
 	return TRANSLATION * -vec3(-R[2][0], R[2][1], R[2][2]);
 }
 
-void Update()
+/* Move the camera if one or more arrow keys are pressed */
+void update()
 {
 	Uint8* keystate = SDL_GetKeyState(0);
 
@@ -184,23 +49,23 @@ void Update()
 	if (keystate[SDLK_UP])
 	{
 		// Move camera forward
-		cameraPos += GetAxis(Direction::FORWARD);
+		cameraPos += getAxis(Direction::FORWARD);
 	}
 	if (keystate[SDLK_DOWN])
 	{
 		// Move camera backward
-		cameraPos += GetAxis(Direction::BACKWARD);
+		cameraPos += getAxis(Direction::BACKWARD);
 	}
 	if (keystate[SDLK_LEFT])
 	{
 		// Move camera to the left
-		cameraPos += GetAxis(Direction::LEFT);
+		cameraPos += getAxis(Direction::LEFT);
 
 		/* Move the camera to the left while rotating to the right */
 		// Rotate camera to the right
 		yaw += ROTATION;
 
-		UpdateRotationMatrix();
+		updateRotationMatrix();
 	}
 	if (keystate[SDLK_RIGHT])
 	{
@@ -208,10 +73,10 @@ void Update()
 		// Rotate camera to the left
 		yaw -= ROTATION;
 
-		UpdateRotationMatrix();
+		updateRotationMatrix();
 
 		// Move camera to the right
-		cameraPos += GetAxis(Direction::RIGHT);
+		cameraPos += getAxis(Direction::RIGHT);
 	}
 }
 
@@ -219,6 +84,8 @@ void Update()
 /* ================================ */
 /*             LIGHT                */
 /* ================================ */
+/* Add the light surface to the model and generate the light sources
+ * if a uniform distribution is specified */
 void initLights() {
 	float startx, startz, endx, endz;
 
@@ -259,8 +126,8 @@ void initLights() {
 	LIGHT_NORMAL = objects[lightIdx.first]->normal(vec3(0, 0, 0));
 }
 
-// Stochastic sampling applying the specified action
-// pixelx, pixely and the return value are only relevant for antialiasing calls
+/* Stochastic sampling applying the specified action
+ * pixelx, pixely and the return value are only relevant for antialiasing calls */
 vec3 stochasticSampling(int action, int pixelx, int pixely) {
 	vec3 color(0, 0, 0);
 	int rows = 1, cols = 1;
@@ -338,11 +205,11 @@ vec3 stochasticSampling(int action, int pixelx, int pixely) {
 /* Return false if the light cannot get to the given point because of another surface (shadow), true otherwise
  * i.e. the vector cannot cross the same distance from the light since it intersects another surface before */
 bool getLightPower(const Intersection& i, const vec3& lightPos, float lightDistance, vec3 &r, vec3& power) {
-	Intersection closestIntersection;
+	Intersection closestI;
 
 	r = glm::normalize(lightPos - i.position);
 
-	if (ClosestIntersection(i.position, r, i.objectIndex, closestIntersection) && closestIntersection.distance + 0.001 <= lightDistance) {
+	if (closestIntersection(i.position, r, i.objectIndex, closestI) && closestI.distance + 0.001 <= lightDistance) {
 		return false;
 	}
 	power = lightColor;
@@ -350,7 +217,7 @@ bool getLightPower(const Intersection& i, const vec3& lightPos, float lightDista
 }
 
 /* Return the light intensity hitting the given intersection from the light source */
-vec3 DirectLight(const Intersection& i) {
+vec3 directLight(const Intersection& i) {
 	float distance;
 	vec3 r, power(0, 0, 0), tmpPower;
 
@@ -359,7 +226,7 @@ vec3 DirectLight(const Intersection& i) {
 	}
 
 	for (const vec3& lightPos : lightPositions) {
-		distance = GetDistance(i.position, lightPos);
+		distance = getDistance(i.position, lightPos);
 
 		if (getLightPower(i, lightPos, distance, r, tmpPower)) {
 			vec3 normal = objects[i.objectIndex]->normal(i.position);
@@ -382,7 +249,8 @@ vec3 DirectLight(const Intersection& i) {
 /* ================================ */
 /*              RAYS                */
 /* ================================ */
-float GetDistance(vec3 p1, vec3 p2) {
+/* Return the distance between two 3D points */
+float getDistance(vec3 p1, vec3 p2) {
 	float dx = p2.x - p1.x;
 	float dy = p2.y - p1.y;
 	float dz = p2.z - p1.z;
@@ -390,7 +258,7 @@ float GetDistance(vec3 p1, vec3 p2) {
 }
 
 /* Return true if the ray intersects with a triangle, false otherwise. If true, closestIntersection is initialized with the result */
-bool ClosestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& closestIntersection) {
+bool closestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& closestIntersection) {
 	closestIntersection.distance = std::numeric_limits<float>::max();
 	vec3 position;
 	float distance;
@@ -398,7 +266,7 @@ bool ClosestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& cl
 	// Intersections with triangles and spheres
 	for (int i = 0; i < objects.size(); ++i) {
 		if (i != startObjIdx && objects[i]->intersects(start, dir, position)) {
-			distance = GetDistance(position, start);
+			distance = getDistance(position, start);
 			if (distance <= closestIntersection.distance) {
 				closestIntersection.distance = distance;
 				closestIntersection.position = position;
@@ -410,12 +278,16 @@ bool ClosestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& cl
 	return closestIntersection.distance != std::numeric_limits<float>::max();
 }
 
-void getReflectedDirection(const vec3& incident, const vec3& normal, vec3& reflected)
-{
+/* Initialize the reflected vector according to the incident vector and object normal */
+void getReflectedDirection(const vec3& incident, const vec3& normal, vec3& reflected) {
 	reflected = incident - normal * (2 * glm::dot(incident, normal));
 }
 
-// i1 and i2 incident and refracted indices. Return false if there is no refraction (total internal reflection)
+/* Initialize the reflected and refracted vectors according to the incident vector,
+ * the object normal (updated if same direction) and the material indices (i1 current, i2 next)
+ * refractionPercentage is initialized to the percentage of light refracted
+ * Return true if there is a refraction (and reflection), false otherwise (total internal reflection)
+ */
 bool getReflectionRefractionDirections(float i1, float i2, const vec3& incident, vec3& normal, vec3& reflected, vec3& refracted, float* refractionPercentage) {
 	float cosI = glm::dot(incident, normal);
 	if (cosI > 0) {
@@ -444,30 +316,35 @@ bool getReflectionRefractionDirections(float i1, float i2, const vec3& incident,
 	return true;
 }
 
+/* Return true if the ray from the start position and direction (d_ray) intersects an object, false otherwise (void)
+ * The intersected object cannot have the index startObjIdx
+ * coloc is initialized with the color of the object hit (may be multiple bounces if refraction or reflection)
+ * refractiveIndice is the current indice
+ */
 bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color, int bounce, float refractiveIndice) {
-	Intersection closestIntersection;
+	Intersection intersection;
 
 	// Fill a pixel with the color of the closest triangle intersecting the ray, black otherwise
-	if (ClosestIntersection(start, d_ray, startObjIdx, closestIntersection)) {
+	if (closestIntersection(start, d_ray, startObjIdx, intersection)) {
 		// Light source hit
-		if (closestIntersection.objectIndex == lightIdx.first || closestIntersection.objectIndex == lightIdx.second) {
+		if (intersection.objectIndex == lightIdx.first || intersection.objectIndex == lightIdx.second) {
 			color = lightColor;
 			return true;
 		}
 
 		// Specular material (reflection) and max number of bounces not reached
-		if (objects[closestIntersection.objectIndex]->material == Material::Specular && bounce < MAX_BOUNCES) {
-			const vec3 normal = objects[closestIntersection.objectIndex]->normal(closestIntersection.position);
+		if (objects[intersection.objectIndex]->material == Material::Specular && bounce < MAX_BOUNCES) {
+			const vec3 normal = objects[intersection.objectIndex]->normal(intersection.position);
 			vec3 next_ray;
 			getReflectedDirection(d_ray, normal, next_ray);
-			return getColor(closestIntersection.position, next_ray, closestIntersection.objectIndex, color, bounce + 1, refractiveIndice);
+			return getColor(intersection.position, next_ray, intersection.objectIndex, color, bounce + 1, refractiveIndice);
 		}
 
 		// Glass material (refraction)
-		else if (objects[closestIntersection.objectIndex]->material == Material::Glass && bounce < MAX_BOUNCES) {
+		else if (objects[intersection.objectIndex]->material == Material::Glass && bounce < MAX_BOUNCES) {
 			vec3 reflected, refracted, normal;
 			float nextRefractiveIndice, refractionPercentage;
-			normal = objects[closestIntersection.objectIndex]->normal(closestIntersection.position);
+			normal = objects[intersection.objectIndex]->normal(intersection.position);
 
 			// Incident material is air
 			if (refractiveIndice == AIR_REFRACTIVE_INDEX) {
@@ -482,31 +359,31 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 			if (getReflectionRefractionDirections(refractiveIndice, nextRefractiveIndice, d_ray, normal, reflected, refracted, &refractionPercentage)) {
 				// Refraction
 				vec3 color2;
-				bool b1 = getColor(closestIntersection.position, refracted, closestIntersection.objectIndex, color, bounce + 1, nextRefractiveIndice);
-				bool b2 = getColor(closestIntersection.position, reflected, closestIntersection.objectIndex, color2, bounce + 1, nextRefractiveIndice);
+				bool b1 = getColor(intersection.position, refracted, intersection.objectIndex, color, bounce + 1, nextRefractiveIndice);
+				bool b2 = getColor(intersection.position, reflected, intersection.objectIndex, color2, bounce + 1, nextRefractiveIndice);
 				color = refractionPercentage * color + (1 - refractionPercentage) * color2;
 				return true;
 			}
 
 			// Reflection caused by an angle between the incident ray and the normal higher than the critical angle (internal total reflection)
-			return getColor(closestIntersection.position, reflected, closestIntersection.objectIndex, color, bounce + 1, refractiveIndice);
+			return getColor(intersection.position, reflected, intersection.objectIndex, color, bounce + 1, refractiveIndice);
 		}
 		// Diffuse and specular material
-		else if (objects[closestIntersection.objectIndex]->material == Material::DiffuseSpecular && bounce < MAX_BOUNCES) {
-			const vec3 normal = objects[closestIntersection.objectIndex]->normal(closestIntersection.position);
+		else if (objects[intersection.objectIndex]->material == Material::DiffuseSpecular && bounce < MAX_BOUNCES) {
+			const vec3 normal = objects[intersection.objectIndex]->normal(intersection.position);
 			// Material color
-			color = (DirectLight(closestIntersection) + indirectLight) * objects[closestIntersection.objectIndex]->color;
+			color = (directLight(intersection) + indirectLight) * objects[intersection.objectIndex]->color;
 			vec3 next_ray, color2;
 			getReflectedDirection(d_ray, normal, next_ray);
 			// Reflection color
-			getColor(closestIntersection.position, next_ray, closestIntersection.objectIndex, color2, bounce + 1, refractiveIndice);
+			getColor(intersection.position, next_ray, intersection.objectIndex, color2, bounce + 1, refractiveIndice);
 			color = (1 - DIFFUSE_SPECULAR_REFLECTION) * color + DIFFUSE_SPECULAR_REFLECTION * color2;
 			return true;
 		}
 
 		// Diffuse material
 		// Compute light color according to illumination and material reflectance
-		color = (DirectLight(closestIntersection) + indirectLight) * objects[closestIntersection.objectIndex]->color;
+		color = (directLight(intersection) + indirectLight) * objects[intersection.objectIndex]->color;
 		return true;
 	}
 	else {
@@ -520,7 +397,7 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 /*         POST-PROCESSING          */
 /* ================================ */ 
 
-/* Applied Sobel operator to the pixel neighbors */
+/* Applied Sobel operator to the pixel neighbors to detect the edges needing anti-aliasing */
 float sobelOperator(int x, int y) {
 	return abs((screenPixelsIntensity[y - 1][x - 1] + 2.0f * screenPixelsIntensity[y - 1][x] + screenPixelsIntensity[y - 1][x + 1])
 		- (screenPixelsIntensity[y + 1][x - 1] + 2.0f * screenPixelsIntensity[y + 1][x] + screenPixelsIntensity[y + 1][x + 1]))
@@ -537,7 +414,7 @@ void computePixelsIntensity() {
 	}
 }
 
-// Supersampling anti-aliasing 8x
+/* Supersampling anti-aliasing 8x */
 vec3 supersamplingAA(int x, int y) {
 	vec3 color = screenPixels[y][x];
 	for (float y1 = y - 0.5; y1 < y + 1; y1 += 0.5) {
@@ -550,6 +427,8 @@ vec3 supersamplingAA(int x, int y) {
 	return color / 9.0f;
 }
 
+/* Compute the edges needing anti-aliasing accordint to the Sobel operator
+ * then apply the specified anti-aliasing */
 void antiAliasing() {
 	list<pair<int, int>> aliasedEdges;
 
@@ -582,11 +461,13 @@ void antiAliasing() {
 /*             DRAWING              */
 /* ================================ */
 
+/* Return the color obtained by tracing a ray from the camera position
+ * to the pixel (x, y) in the 2D screen resolution (may be bounces) */
 vec3 traceRayFromCamera(float x, float y) {
 	vec3 color;
 
 	// Ray direction
-	vec3 d_ray(x - SCREEN_WIDTH / 2.0, y - SCREEN_HEIGHT / 2.0, focalLength);
+	vec3 d_ray(x - SCREEN_WIDTH / 2.0, y - SCREEN_HEIGHT / 2.0, FOCAL_LENGTH);
 	// Ray rotation
 	if (yaw != 0) {
 		d_ray = d_ray * R;
@@ -598,7 +479,8 @@ vec3 traceRayFromCamera(float x, float y) {
 	return color;
 }
 
-void Draw()
+/* Draw the scene by tracing rays from the camera */
+void draw()
 {
 	vec3 color;
 
@@ -625,4 +507,51 @@ void Draw()
 		SDL_UnlockSurface(screen);
 
 	SDL_UpdateRect(screen, 0, 0, 0, 0);
+}
+
+/* Load the model then draw the scene, moving the camera
+ * between each frame if required */
+int main(int argc, char* argv[])
+{
+	// Initialization
+	srand(time(NULL));
+	screen = InitializeSDL(SCREEN_WIDTH, SCREEN_HEIGHT);
+	R[1][1] = 1;
+	updateRotationMatrix();
+	int time_ms = SDL_GetTicks(), t2, dt; // Timer
+
+	// Load model
+	LoadTestModel(objects);
+	// Initialize the light sources and the light surface
+	initLights();
+
+	while (NoQuitMessageSDL())
+	{
+		update();
+		draw();
+
+		// Display computation time
+		t2 = SDL_GetTicks();
+		dt = float(t2 - time_ms);
+		time_ms = t2;
+		cout << "Render time: " << dt << " ms." << endl;
+
+		if (EXPORT_AND_EXIT) {
+			break;
+		}
+	}
+
+	// Export scene into .bmp file
+	char c[20];
+	_itoa_s(dt, c, 10);
+	string filename("screenshot (");
+	filename.append(c).append("ms).bmp");
+	SDL_SaveBMP(screen, filename.c_str());
+
+	// Cleaning
+	for (Object3D* o : objects) {
+		free(o);
+	}
+
+	return 0;
 }

@@ -6,29 +6,24 @@
 
 using glm::vec3;
 
+// Describe a sphere
 class Sphere : public Object3D {
 public:
 	glm::vec3 center;
 	float radius;
 
 	Sphere(glm::vec3 c, float r, glm::vec3 color, Material material)
-		:center(c), radius(r), Object3D(color, material)
-	{
+		:center(c), radius(r), Object3D(color, material) {
 	}
 
-	virtual void scale(float L) {
-		center *= 2 / L;
-		center -= vec3(1, 1, 1);
-		center.x *= -1;
-		center.y *= -1;
-
-		radius *= 2 / L;
-	}
-
+	/* Return the normal of the current object. The position (of an intersection ray / object)
+	 * is relevant only for calls applied to a sphere */
 	virtual glm::vec3 normal(const glm::vec3& position) {
 		return glm::normalize((position - center) / radius);
 	}
 
+	/* Return true and initialize the intersection parameter if the ray defined by
+	 * the starting point and direction intersects the objects, false otherwise */
 	bool intersects(vec3 start, vec3 dir, vec3& intersection) {
 		vec3 p1 = start + dir;
 		float dx = p1.x - start.x;
@@ -56,6 +51,16 @@ public:
 		intersection.z = start.z + t * dz;
 
 		return true;
+	}
+
+	/* Scale to the volume [-1,1]^3 */
+	virtual void scale(float L) {
+		center *= 2 / L;
+		center -= vec3(1, 1, 1);
+		center.x *= -1;
+		center.y *= -1;
+
+		radius *= 2 / L;
 	}
 };
 

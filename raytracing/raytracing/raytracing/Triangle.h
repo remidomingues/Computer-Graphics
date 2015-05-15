@@ -6,20 +6,31 @@
 
 using glm::vec3;
 
-// Used to describe a triangular surface:
+// Describe a triangular surface
 class Triangle : public Object3D {
 public:
+	// Triangle vertices
 	glm::vec3 v0;
 	glm::vec3 v1;
 	glm::vec3 v2;
+	// Normal
 	glm::vec3 _normal;
 
+	/* Constructor */
 	Triangle(glm::vec3 v0, glm::vec3 v1, glm::vec3 v2, glm::vec3 color, Material material)
 		: v0(v0), v1(v1), v2(v2), Object3D(color, material) {
 		ComputeNormal();
 	}
 
-	/* Return x (t u v) from ray start and direction. t distance, u and v triangle delimiters */
+	/* Return the normal of the current object. The position (of an intersection ray / object)
+	* is relevant only for calls applied to a sphere */
+	virtual glm::vec3 normal(const glm::vec3& position) {
+		return _normal;
+	}
+
+	/* Return true and initialize the intersection parameter if the ray defined by
+	 * the starting point and direction intersects the objects, false otherwise
+	 * The intersection components are x (t u v) with t distance, u and v triangle delimiters */
 	virtual bool intersects(vec3 start, vec3 dir, vec3& intersection) {
 		float EPSILON = 0.000001;
 		vec3 P, Q, T;
@@ -70,10 +81,7 @@ public:
 		return 0;
 	}
 
-	virtual glm::vec3 normal(const glm::vec3& position) {
-		return _normal;
-	}
-
+	/* Scale to the volume [-1,1]^3 */
 	virtual void scale(float L) {
 		v0 *= 2 / L;
 		v1 *= 2 / L;
@@ -95,6 +103,7 @@ public:
 	}
 
 private:
+	/* Compute the normal of the triangle */
 	void ComputeNormal()
 	{
 		glm::vec3 e1 = v1 - v0;
