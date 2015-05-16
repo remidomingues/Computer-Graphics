@@ -153,17 +153,37 @@ Once we have computed the intensity, we must detect the intensity variations in 
 
 
 \subsection{Uniform}
-Once we know which pixels need anti-aliasing, we can improve the accuracy of our edges by shooting multiple rays in various directions inside each pixel.
+Once we know which pixels need anti-aliasing, we can improve the accuracy of our edges by shooting multiple rays in various directions inside each pixel. This process, also called supersampling and illustrated in figure \ref{fig:aa_uniform}, soften the edges by averaging the value of the current pixel and the one of 8 new rays, each ray having the weight $\frac{1}{9}$. Note that the rays must be traced inside the pixel. Averaging the values of the pixels around would only result in a blur instead of improving the accuracy.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.35\linewidth]{img/glass_awesome.png}
-\caption{Uniform anti-aliasing 8x}
+\includegraphics[width=0.35\linewidth]{img/antialiasing/uniform.jpg}
+\caption{8 new rays are shot per pixel}
+\label{fig:aa_uniform}
 \end{figure}
 
-\subsection{Stochastic sampling}
+Figure \ref{fig:aa_uniform_zoom} shows the result of this algorithm. The image is a zoom on the mirror after a few forward camera translations and a rotation.
 
-They are zoomed
+\subsection{Stochastic sampling}
+The previous method improves our edges, but the uniform distribution of the rays on the pixel sides preserves the edge geometry and aliasing is still likely to occur.
+
+Since the human eye is very efficient at identifying patterns and their discontinuations, stochastic sampling aims at adding noise to the edges in order to make this task harder, resulting in soften edges perceived. 
+
+To do so, we divide each pixel in a grid, e.g. 4x4 for an anti-aliasing 16x (figure \ref{fig:aa_stochastic}). Instead of only shooting rays on the sides of the pixel, we now shoot one ray per grid cell. The coordinates of the ray shot per cell are randomly sampled inside the cell. We eventually average the value returned by those rays with the current pixel value, each ray having here a weight of $\frac{1}{17}$. Note that we could also ignore the value of the current pixel, but more data is always better.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.35\linewidth]{img/antialiasing/stochastic.jpg}
+\caption{16 new rays are sampled on a grid inside each a pixel}
+\label{fig:aa_stochastic}
+\end{figure}
+
+Our raytracer allows a 2x, 4x, 8x, 16x and 64x anti-aliasing by stochastic sampling.
+
+
+\subsection{Evaluations}
+The following pictures describes the results obtained by some of the previous anti-aliasing algorithms. The computation time is also mentioned.
+
 \begin{figure}[H]
 \minipage{0.25\textwidth}
     \centering
@@ -174,6 +194,7 @@ They are zoomed
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/super8x.png}
     \caption{Uniform 8x (1200 ms)}
+    \label{fig:aa_uniform_zoom}
 \endminipage\hfill
 \minipage{0.25\textwidth}
     \centering
@@ -187,6 +208,9 @@ They are zoomed
 \endminipage\hfill
 \end{figure}
 
+Based on the previous figures and as expected, a stochastic sampling 16x seems to give the best edges.
+
+Another interesting method, not implemented here, is called adaptive sampling. This algorithm shoots 1 ray at each corner of a pixel and then compare their grayscale intensity. If these intensities varies significantly, the pixel is divided into 4 cells and the same algorithm is applied for each cell, until a certain deepness is reached.
 
 \begin{figure}[H]
 \centering

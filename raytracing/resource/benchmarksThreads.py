@@ -19,4 +19,4 @@ plt.xlabel('Number of threads')
 plt.ylabel('Render time (ms)')
 plt.show()
 
-fig.savefig('benchmarks', bbox_extra_artists=(lgd,), bbox_inches='tight')
+fig.savefig('benchmarksThreads', bbox_extra_artists=(lgd,), bbox_inches='tight')
