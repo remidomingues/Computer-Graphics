@@ -15,7 +15,7 @@
 const int THREADS = 4;
 
 // If true, render the image, export it in a .bmp file then exit
-const bool EXPORT_AND_EXIT = true;
+const bool EXPORT_AND_EXIT = false;
 
 // Rendering resolution
 const int SCREEN_WIDTH = 1000;
@@ -32,7 +32,7 @@ int LIGHT_COLS = 16;
 const int MAX_BOUNCES = 15;
 
 // Anti aliasing
-const AntiAliasing ANTI_ALIASING = AntiAliasing::Uniform8x;
+const AntiAliasing ANTI_ALIASING = AntiAliasing::StochasticSampling16x;
 
 
 // ----------------------------------------------------------------------------
@@ -258,7 +258,7 @@ void initLightSurface() {
 /* Stochastic sampling applying the specified action
 * pixelx, pixely and the return value are only relevant for antialiasing calls */
 vec3 stochasticSampling(int action, int pixelx, int pixely, int rank) {
-	vec3 color(0, 0, 0);
+	vec3 color = screenPixels[pixely][pixelx];
 	int rows = 1, cols = 1, i = 0;
 	// Cell limits (subparts of a pixel)
 	float x, y, startx, starty, endx, endy, stepx, stepy, factor;
@@ -334,7 +334,7 @@ vec3 stochasticSampling(int action, int pixelx, int pixely, int rank) {
 		endy += stepy;
 	}
 
-	return color / (float)(rows * cols);
+	return color / ((float)(rows * cols) + 1);
 }
 
 /* Return false if the light cannot get to the given point because of another surface (shadow), true otherwise

@@ -25,10 +25,9 @@ public:
 	/* Return true and initialize the intersection parameter if the ray defined by
 	 * the starting point and direction intersects the objects, false otherwise */
 	bool intersects(vec3 start, vec3 dir, vec3& intersection) {
-		vec3 p1 = start + dir;
-		float dx = p1.x - start.x;
-		float dy = p1.y - start.y;
-		float dz = p1.z - start.z;
+		float dx = dir.x;
+		float dy = dir.y;
+		float dz = dir.z;
 
 		float a = dx*dx + dy*dy + dz*dz;
 		float b = 2 * dx*(start.x - center.x) + 2 * dy*(start.y - center.y) + 2 * dz*(start.z - center.z);

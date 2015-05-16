@@ -44,9 +44,8 @@ Rémi Domingues}
 
     %\frontmatter
     \thispagestyle{empty}
-    %\tableofcontents
+    \tableofcontents
     \addtocontents{toc}{\protect\thispagestyle{empty}}
-    \pagebreak
 
     %\mainmatter
     \pagestyle{headings}
@@ -55,6 +54,11 @@ Rémi Domingues}
 
     \input{part1}
     \input{part2}
+    \pagebreak
+    
+    \bibliographystyle{plain}
+    \renewcommand{\bibname}{References}
+    \bibliography{references}
 
     %\backmatter
 \end{document}
