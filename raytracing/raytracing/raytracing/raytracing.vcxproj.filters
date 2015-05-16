@@ -33,6 +33,9 @@
     <ClInclude Include="Raytracing.h">
       <Filter>Fichiers d%27en-tête</Filter>
     </ClInclude>
+    <ClInclude Include="Multithreading.h">
+      <Filter>Fichiers d%27en-tête</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="raytracing.rc">
@@ -41,6 +44,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Raytracing.cpp">
+      <Filter>Fichiers sources</Filter>
+    </ClCompile>
+    <ClCompile Include="Multithreading.cpp">
       <Filter>Fichiers sources</Filter>
     </ClCompile>
   </ItemGroup>

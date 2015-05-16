@@ -15,10 +15,12 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Multithreading.cpp" />
     <ClCompile Include="Raytracing.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Material.h" />
+    <ClInclude Include="Multithreading.h" />
     <ClInclude Include="Object3D.h" />
     <ClInclude Include="Raytracing.h" />
     <ClInclude Include="Sphere.h" />
@@ -67,7 +69,7 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <TargetName>$(ProjectName)2</TargetName>
+    <TargetName>$(ProjectName)_multi</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

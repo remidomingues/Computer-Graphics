@@ -1,5 +1,5 @@
-#ifndef TEST_MODEL_CORNEL_BOX_H
-#define TEST_MODEL_CORNEL_BOX_H
+#ifndef MODEL_H
+#define MODEL_H
 
 #include <glm/glm.hpp>
 #include <vector>
@@ -26,7 +26,7 @@ using glm::vec3;
  *		- Origin: center of the scene on the three axis
  *		- Directions: (x: right, y: down: z: deepness)
  */
-void LoadTestModel(std::vector<Object3D*>&  objects) {
+void loadModel(std::vector<Object3D*>& objects) {
 	// Colors
 	vec3 red(    0.75f, 0.15f, 0.15f );
 	vec3 yellow( 0.75f, 0.75f, 0.15f );
