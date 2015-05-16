@@ -12,27 +12,27 @@
 // ----------------------------------------------------------------------------
 // RENDERING PARAMETERS
 // Number of threads to process the scene (post-processing excluded). One single thread if value is <= 1
-const int THREADS = 8;
+const int THREADS = 4;
 
 // If true, render the image, export it in a .bmp file then exit
-const bool EXPORT_AND_EXIT = false;
+const bool EXPORT_AND_EXIT = true;
 
 // Rendering resolution
-const int SCREEN_WIDTH = 301;
-const int SCREEN_HEIGHT = 301;
+const int SCREEN_WIDTH = 1000;
+const int SCREEN_HEIGHT = 1000;
 
 // Light distribution
 LightDistribution LIGHTS_DISTRIBUTION = LightDistribution::Jittered;
 
 // Number of sampled lights will be LIGHT_ROWS * LIGHT_COLS
-int LIGHT_ROWS = 4;
-int LIGHT_COLS = 4;
+int LIGHT_ROWS = 16;
+int LIGHT_COLS = 16;
 
 // Maximum number of light bounces by refraction and reflection
-const int MAX_BOUNCES = 1;
+const int MAX_BOUNCES = 15;
 
 // Anti aliasing
-const AntiAliasing ANTI_ALIASING = AntiAliasing::Disabled;
+const AntiAliasing ANTI_ALIASING = AntiAliasing::Uniform8x;
 
 
 // ----------------------------------------------------------------------------
@@ -65,11 +65,13 @@ const vec3 SHADOW_COLOR = 0.0f * vec3(1, 1, 1);
 const vec3 VOID_COLOR(0.75, 0.75, 0.75);
 
 /* Progress notification */
-bool DISPLAY_PROGRESS = false;
-int PROGRESS_STEP = 10;
+bool DISPLAY_PROGRESS = true;
+int PROGRESS_STEP = 1;
 
 // ----------------------------------------------------------------------------
 // GLOBAL VARIABLES
+int start_time;
+
 /* Screen */
 SDL_Surface* screen;
 vec3** screenPixels;
@@ -95,6 +97,7 @@ const int NOT_STARTOBJIDX = -1;
 
 /* Anti-aliasing */
 float screenPixelsIntensity[SCREEN_HEIGHT][SCREEN_WIDTH];
+list<pair<int, int>>* aliasedEdges = new list<pair<int, int>>();
 
 
 /* ================================ */
@@ -194,6 +197,9 @@ void update()
 	}
 }
 
+float getElapsedTime() {
+	return float(SDL_GetTicks() - start_time);
+}
 
 /* ================================ */
 /*             LIGHT                */
@@ -567,11 +573,23 @@ vec3 supersamplingAA(int x, int y) {
 	return color / 9.0f;
 }
 
+/* Apply anti-aliasing to one pixel */
+void antiAliasingOnPixel(vec3** screenPixels, const pair<int, int>& p, int rank) {
+	if (ANTI_ALIASING == AntiAliasing::Uniform8x) {
+		screenPixels[p.second][p.first] = supersamplingAA(p.first, p.second);
+	}
+	else {
+		screenPixels[p.second][p.first] = stochasticSampling(ANTI_ALIASING, p.first, p.second, rank);
+	}
+}
+
 /* Compute the edges needing anti-aliasing accordint to the Sobel operator
 * then apply the specified anti-aliasing */
 void antiAliasing() {
-	list<pair<int, int>> aliasedEdges;
-
+	int i = 0, size;
+	double tmp;
+	int elapsed, nextStep = PROGRESS_STEP;
+	aliasedEdges->clear();
 	computePixelsIntensity();
 
 	// Iterate through every pixel
@@ -581,19 +599,33 @@ void antiAliasing() {
 			// If the edge is aliased
 			if (sobelOperator(x, y) > SOBEL_THRESHOLD) {
 				// Store the pixel
-				aliasedEdges.push_back(pair<int, int>(x, y));
+				aliasedEdges->push_back(pair<int, int>(x, y));
 			}
 		}
 	}
 
 	// Apply anti-aliasing by shooting new rays around the edge and averaging the values
-	for (pair<int, int> p : aliasedEdges) {
-		if (ANTI_ALIASING == AntiAliasing::Uniform8x) {
-			screenPixels[p.second][p.first] = supersamplingAA(p.first, p.second);
+	if (THREADS <= 1) {
+		size = aliasedEdges->size();
+
+		for (const pair<int, int>& p : *aliasedEdges) {
+			antiAliasingOnPixel(screenPixels, p, 0);
+
+			// Progress display
+			tmp = (i + 1) * 100 / (float) size;
+			if (DISPLAY_PROGRESS && tmp >= nextStep * 2) {
+				elapsed = float(SDL_GetTicks() - start_time);
+				if (elapsed >= 100000) {
+					cout << 50 + nextStep << "% (" << elapsed / 1000 << " seconds)" << endl;
+				} else {
+					cout << 50 + nextStep << "% (" << elapsed << " ms)" << endl;
+				}
+				nextStep += PROGRESS_STEP;
+			}
+			++i;
 		}
-		else {
-			screenPixels[p.second][p.first] = stochasticSampling(ANTI_ALIASING, p.first, p.second, 0);
-		}
+	} else {
+		multithreadedAntiAliasing(screenPixels, aliasedEdges, THREADS);
 	}
 }
 
@@ -622,14 +654,10 @@ vec3 traceRayFromCamera(float x, float y, int rank) {
 
 /* Scene processing, compute the scene pixels */
 void process(vec3** screenPixels, int width, int height, int widthOffset, int heightOffset, int threadRank) {
-	int start_time = SDL_GetTicks();
+	start_time = SDL_GetTicks();
 	vec3 color;
 	double tmp;
 	int elapsed, nextStep = PROGRESS_STEP;
-
-	if (DISPLAY_PROGRESS) {
-		cout << "Processing scene..." << endl;
-	}
 
 	for (int y = heightOffset; y < heightOffset + height; ++y) {
 		for (int x = widthOffset; x < widthOffset + width; ++x) {
@@ -638,13 +666,15 @@ void process(vec3** screenPixels, int width, int height, int widthOffset, int he
 
 		// Display percentage of computations achieved (biased by bounces)
 		tmp = (y - heightOffset + 1) * 100 / (float)height;
-		if (threadRank == 0 && DISPLAY_PROGRESS && tmp >= nextStep) {
+		if (threadRank == 0 && DISPLAY_PROGRESS &&
+			((ANTI_ALIASING == AntiAliasing::Disabled && tmp >= nextStep) ||
+			(ANTI_ALIASING != AntiAliasing::Disabled && tmp >= nextStep * 2))) {
 			elapsed = float(SDL_GetTicks() - start_time);
+			cout << nextStep << "% (";
 			if (elapsed >= 100000) {
-				cout << nextStep << "% (" << elapsed / 1000 << " seconds)" << endl;
-			}
-			else {
-				cout << nextStep << "% (" << elapsed << " ms)" << endl;
+				cout << elapsed / 1000 << " seconds)" << endl;
+			} else {
+				cout << elapsed << " ms)" << endl;
 			}
 			nextStep += PROGRESS_STEP;
 		}
@@ -682,19 +712,58 @@ void display() {
 void draw()
 {
 	if (THREADS <= 1) {
+		if (DISPLAY_PROGRESS) {
+			cout << "Processing scene..." << endl;
+		}
 		process(screenPixels, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0);
 	}
 	else {
-		multithreadedProcess(screenPixels, SCREEN_WIDTH, SCREEN_HEIGHT, THREADS);
+		multithreadedProcess(screenPixels, SCREEN_WIDTH, SCREEN_HEIGHT, THREADS, ANTI_ALIASING != AntiAliasing::Disabled);
 	}
 	postProcess();
 	display();
+}
+
+/* Config display */
+void displayConfig() {
+	cout << "Cornell Box" << endl << "-----------" << endl << "- Resolution: " << SCREEN_WIDTH
+		<< "x" << SCREEN_HEIGHT << endl << "- Lights: " << LIGHT_ROWS * LIGHT_COLS;
+	if (LIGHTS_DISTRIBUTION == LightDistribution::Uniform) {
+		cout << " (uniform)" << endl;
+	}
+	else if (LIGHTS_DISTRIBUTION == LightDistribution::Jittered) {
+		cout << " (jittered)" << endl;
+	}
+	cout << "- Max bounces per ray: " << MAX_BOUNCES << endl << "- Anti-aliasing: ";
+	if (ANTI_ALIASING == AntiAliasing::Disabled) {
+		cout << "Disabled" << endl;
+	}
+	else if (ANTI_ALIASING == AntiAliasing::StochasticSampling2x) {
+		cout << "Stochastic Sampling 2x" << endl;
+	}
+	else if (ANTI_ALIASING == AntiAliasing::StochasticSampling4x) {
+		cout << "Stochastic Sampling 4x" << endl;
+	}
+	else if (ANTI_ALIASING == AntiAliasing::StochasticSampling8x) {
+		cout << "Stochastic Sampling 8x" << endl;
+	}
+	else if (ANTI_ALIASING == AntiAliasing::StochasticSampling16x) {
+		cout << "Stochastic Sampling 16x" << endl;
+	}
+	else if (ANTI_ALIASING == AntiAliasing::StochasticSampling64x) {
+		cout << "Stochastic Sampling 64x" << endl;
+	}
+	else if (ANTI_ALIASING == AntiAliasing::Uniform8x) {
+		cout << "Uniform 8x" << endl;
+	}
 }
 
 /* Load the model then draw the scene, moving the camera
 * between each frame if required */
 int main(int argc, char* argv[])
 {
+	displayConfig();
+
 	// Initialization
 	screenPixels = new vec3*[SCREEN_HEIGHT];
 	for (int i = 0; i < SCREEN_HEIGHT; ++i) {
@@ -709,6 +778,7 @@ int main(int argc, char* argv[])
 
 	// Load model
 	loadModel(objects);
+
 	// Initialize the light sources and the light surface
 	initLights();
 	initLightSurface();
@@ -724,10 +794,10 @@ int main(int argc, char* argv[])
 		time_ms = t2;
 
 		if (dt >= 100000) {
-			cout << "Render time: " << dt / 1000 << " seconds" << endl;
+			cout << "Render time: " << dt / 1000 << " seconds" << endl << endl;
 		}
 		else {
-			cout << "Render time: " << dt << " ms" << endl;
+			cout << "Render time: " << dt << " ms" << endl << endl;
 		}
 
 		if (EXPORT_AND_EXIT) {
@@ -738,16 +808,13 @@ int main(int argc, char* argv[])
 	// Export scene into .bmp file
 	char c[50];
 	string filename("screenshot (");
-
 	if (dt >= 100000) {
 		_itoa_s(dt / 1000, c, 10);
 		filename.append(c).append(" s).bmp");
-	}
-	else {
+	} else {
 		_itoa_s(dt, c, 10);
 		filename.append(c).append(" ms).bmp");
 	}
-
 	SDL_SaveBMP(screen, filename.c_str());
 
 	// Cleaning
@@ -758,6 +825,7 @@ int main(int argc, char* argv[])
 	for (Object3D* o : objects) {
 		free(o);
 	}
+	free(aliasedEdges);
 
 	return 0;
 }

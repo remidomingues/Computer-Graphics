@@ -51,23 +51,23 @@ int getDataLength(int rank, int length, int N) {
 }
 
 /* Call the process function to process a part of the scene */
-DWORD WINAPI threadFunction(LPVOID lpParam)
+DWORD WINAPI _threadProcess(LPVOID lpParam)
 {
-	ThreadData *td = (ThreadData*)lpParam;
+	ThreadProcessData *td = (ThreadProcessData*)lpParam;
 	process(*(td->screenPixels), td->width, td->height, td->widthOffset, td->heightOffset, td->rank);
 	return 0;
 }
 
 /* Process the scene (post-processing excluded) using N threads
 * scattering pixels computations on a PxQ grid (PxQ = N) */
-void multithreadedProcess(vec3** screenPixels, int width, int height, int N) {
+void multithreadedProcess(vec3** screenPixels, int width, int height, int N, bool antiAliasing) {
 	int P, Q, myWidth, myHeight;
-	int tWidth, tHeight, tWidthOffset = 0, tHeightOffset = 0, rank = 0;
+	int tWidth, tHeight, tWidthOffset = 0, tHeightOffset = 0, rank = 1;
 	vector<HANDLE> handles(N - 1);
 	getProcessesDistribution(N, &P, &Q);
 
 	if (iter == 0) {
-		cout << N << " threads will be distributed on a " << P << "x" << Q << " grid" << endl;
+		cout << "Processing scene using " << N << " threads distributed on a " << P << "x" << Q << " grid..." << endl;
 		++iter;
 	}
 
@@ -77,18 +77,16 @@ void multithreadedProcess(vec3** screenPixels, int width, int height, int N) {
 			tWidth = getDataLength(p, width, P);
 			tHeight = getDataLength(q, height, Q);
 
-			cout << "rank=" << rank << " tWidthOffset=" << tWidthOffset << " tHeightOffset=" << tHeightOffset << " twidth=" << tWidth << " tHeight=" << tHeight << endl;
-
 			if (p != 0 || q != 0) {
-				ThreadData* data = new ThreadData(&screenPixels, tWidth, tHeight, tWidthOffset, tHeightOffset, rank);
-				handles.push_back(CreateThread(NULL, 0, threadFunction, data, 0, 0));
+				ThreadProcessData* data = new ThreadProcessData(&screenPixels, tWidth, tHeight, tWidthOffset, tHeightOffset, rank);
+				handles.push_back(CreateThread(NULL, 0, _threadProcess, data, 0, 0));
+				++rank;
 			} else {
 				myWidth = tWidth;
 				myHeight = tHeight;
 			}
 
 			tWidthOffset += tWidth;
-			++rank;
 		}
 		tWidthOffset = 0;
 		tHeightOffset += tHeight;
@@ -98,6 +96,74 @@ void multithreadedProcess(vec3** screenPixels, int width, int height, int N) {
 	process(screenPixels, myWidth, myHeight, 0, 0, 0);
 
 	// Wait for threads
+	cout << "Finishing processing..." << endl;
+	for (HANDLE& handle : handles) {
+		WaitForSingleObject(handle, INFINITE);
+	}
+}
+
+/* Call the anti-aliasing function for each pixel assigned to the thread */
+void threadAntiAliasing(vec3*** screenPixels, list<pair<int, int>>* aliasedEdges, int size, int offset, int rank) {
+	int i = 0;
+	double tmp;
+	int elapsed, nextStep = PROGRESS_STEP;
+
+	for (const pair<int, int>& p : *aliasedEdges) {
+		if (i >= offset + size) {
+			break;
+		}
+		if (i >= offset) {
+			antiAliasingOnPixel(*screenPixels, p, rank);
+		}
+
+		// Progress display
+		tmp = (i - offset + 1) * 100 / (float) size;
+		if (rank == 0 && DISPLAY_PROGRESS && tmp >= nextStep * 2) {
+			elapsed = getElapsedTime();
+			if (elapsed >= 100000) {
+				cout << 50 + nextStep << "% (" << elapsed / 1000 << " seconds)" << endl;
+			} else {
+				cout << 50 + nextStep << "% (" << elapsed << " ms)" << endl;
+			}
+			nextStep += PROGRESS_STEP;
+		}
+		++i;
+	}
+}
+
+/* Call the anti-aliasing function for each pixel assigned to the thread */
+DWORD WINAPI _threadAntiAliasing(LPVOID lpParam)
+{
+	ThreadAAData* td = (ThreadAAData*)lpParam;
+	threadAntiAliasing(td->screenPixels, td->aliasedEdges, td->size, td->offset, td->rank);
+	return 0;
+}
+
+/*Apply anti-aliasing to the scene using N threads */
+void multithreadedAntiAliasing(vec3** screenPixels, list<pair<int, int>>* aliasedEdges, int N) {
+	int tSize, tOffset = 0, mySize, size = aliasedEdges->size();
+	vector<HANDLE> handles(N - 1);
+
+	// Create threads
+	for (int r = 0; r < N; ++r) {
+		tSize = getDataLength(r, size, N);
+
+		if (r != 0) {
+			ThreadAAData* data = new ThreadAAData(&screenPixels, aliasedEdges, tSize, tOffset, r);
+			handles.push_back(CreateThread(NULL, 0, _threadAntiAliasing, data, 0, 0));
+		}
+		else {
+			mySize = tSize;
+		}
+
+		tOffset += tSize;
+	}
+
+	// Process a part of the scene
+	threadAntiAliasing(&screenPixels, aliasedEdges, mySize, 0, 0);
+
+	// Wait for threads
+	cout << "Finishing anti-aliasing..." << endl;
 	for (HANDLE& handle : handles) {
 		WaitForSingleObject(handle, INFINITE);
 	}

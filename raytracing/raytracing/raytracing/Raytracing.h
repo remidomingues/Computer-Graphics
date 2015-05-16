@@ -69,14 +69,17 @@ typedef enum AntiAliasing {
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 void antiAliasing();
+void antiAliasingOnPixel(vec3** screenPixels, const pair<int, int>& p, int rank);
 bool closestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& closestIntersection);
 void computePixelsIntensity();
 vec3 directLight(const Intersection& i, int rank);
 void display();
+void displayConfig();
 void draw();
 vec3 getAxis(Direction dir);
 bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color, int bounce, float refractiveIndice, float weight, int rank);
 float getDistance(vec3 p1, vec3 p2);
+float getElapsedTime();
 bool getLightPower(const Intersection& i, const vec3& lightPos, float lightDistance, vec3 &r, vec3& power);
 void getReflectedDirection(const vec3& incident, const vec3& normal, vec3& reflected);
 bool getReflectionRefractionDirections(float i1, float i2, const vec3& incident, vec3& normal, vec3& reflected, vec3& refracted, float* refractionPercentage);
