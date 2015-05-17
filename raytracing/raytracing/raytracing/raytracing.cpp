@@ -1,3 +1,28 @@
+/* 
+ * Raytracer supporting the following features:
+ * - Objects: triangles and spheres
+ * - Materials:
+ *		- Diffuse (absorption)
+ *		- Specular (reflection)
+ *		- Diffuse and specular (absorption and reflection)
+ *		- Glass (refraction and reflection)
+ * - Direct illumination + constant indirect illumination
+ * - Soft shadows (NxN light sources) according to the following light sources distribution:
+ *		- Uniform
+ *		- Jittered by stochastic sampling
+ * - Anti-aliasing:
+ *		- Uniform 8x
+ *		- Jittered by stochastic sampling 2x, 4x, 8x, 16x, 64x
+ * - Multithreading
+ *
+ * The most important constants to tweak are:
+ *	- THREADS
+ *	- EXPORT_AND_EXIT
+ *	- SCREEN_WIDTH and SCREEN_HEIGHT
+ *	- LIGHT_ROWS and LIGHT_COLS
+ *	- ANTI_ALIASING
+ */
+
 #define _USE_MATH_DEFINES
 
 #include <algorithm>
@@ -12,21 +37,21 @@
 // ----------------------------------------------------------------------------
 // RENDERING PARAMETERS
 // Number of threads to process the scene (post-processing excluded). One single thread if value is <= 1
-const int THREADS = 4;
+const int THREADS = 2;
 
 // If true, render the image, export it in a .bmp file then exit
 const bool EXPORT_AND_EXIT = false;
 
 // Rendering resolution
-const int SCREEN_WIDTH = 1000;
-const int SCREEN_HEIGHT = 1000;
+const int SCREEN_WIDTH = 250;
+const int SCREEN_HEIGHT = 250;
 
 // Light distribution
-LightDistribution LIGHTS_DISTRIBUTION = LightDistribution::Jittered;
+LightDistribution LIGHTS_DISTRIBUTION = LightDistribution::Uniform;
 
 // Number of sampled lights will be LIGHT_ROWS * LIGHT_COLS
-int LIGHT_ROWS = 16;
-int LIGHT_COLS = 16;
+int LIGHT_ROWS = 1;
+int LIGHT_COLS = 1;
 
 // Maximum number of light bounces by refraction and reflection
 const int MAX_BOUNCES = 15;
@@ -65,7 +90,7 @@ const vec3 SHADOW_COLOR = 0.0f * vec3(1, 1, 1);
 const vec3 VOID_COLOR(0.75, 0.75, 0.75);
 
 /* Progress notification */
-bool DISPLAY_PROGRESS = true;
+bool DISPLAY_PROGRESS = false;
 int PROGRESS_STEP = 1;
 
 // ----------------------------------------------------------------------------

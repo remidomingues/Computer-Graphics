@@ -17,10 +17,11 @@ struct ThreadProcessData
 	int widthOffset;
 	int heightOffset;
 	vec3*** screenPixels;
+	HANDLE* mutex;
 	
 	/* Constructor */
-	ThreadProcessData(vec3*** screenPixels, int width, int height, int widthOffset, int heightOffset, int rank)
-		:screenPixels(screenPixels), width(width), height(height), widthOffset(widthOffset), heightOffset(heightOffset), rank(rank) {
+	ThreadProcessData(vec3*** screenPixels, int width, int height, int widthOffset, int heightOffset, int rank, HANDLE* mutex)
+		:screenPixels(screenPixels), width(width), height(height), widthOffset(widthOffset), heightOffset(heightOffset), rank(rank), mutex(mutex) {
 	}
 };
 
@@ -29,13 +30,13 @@ struct ThreadAAData
 {
 	int rank;
 	int size;
-	int offset;
 	list<pair<int, int>>* aliasedEdges;
 	vec3*** screenPixels;
+	HANDLE* mutex;
 
 	/* Constructor */
-	ThreadAAData(vec3*** screenPixels, list<pair<int, int>>* aliasedEdges, int size, int offset, int rank)
-		:screenPixels(screenPixels), aliasedEdges(aliasedEdges), size(size), offset(offset), rank(rank) {
+	ThreadAAData(vec3*** screenPixels, list<pair<int, int>>* aliasedEdges, int size, int rank, HANDLE* mutex)
+		:screenPixels(screenPixels), aliasedEdges(aliasedEdges), size(size), rank(rank), mutex(mutex) {
 	}
 };
 
@@ -52,6 +53,7 @@ void process(vec3** screenPixels, int width, int height, int widthOffset, int he
 void multithreadedAntiAliasing(vec3** screenPixels, list<pair<int, int>>* aliasedEdges, int N);
 void multithreadedProcess(vec3** screenPixels, int width, int height, int N, bool antiAliasing);
 void rankToCoords(int r, int P, int * p, int * q);
+void threadAntiAliasing(vec3*** screenPixels, list<pair<int, int>>* aliasedEdges, int size, int rank, HANDLE* mutex);
 DWORD WINAPI _threadAntiAliasing(LPVOID lpParam);
 DWORD WINAPI _threadProcess(LPVOID lpParameter);
 

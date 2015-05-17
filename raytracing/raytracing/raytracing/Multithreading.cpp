@@ -64,6 +64,7 @@ void multithreadedProcess(vec3** screenPixels, int width, int height, int N, boo
 	int P, Q, myWidth, myHeight;
 	int tWidth, tHeight, tWidthOffset = 0, tHeightOffset = 0, rank = 1;
 	vector<HANDLE> handles(N - 1);
+	HANDLE mutex = CreateMutex(NULL, FALSE, NULL);
 	getProcessesDistribution(N, &P, &Q);
 
 	if (iter == 0) {
@@ -78,7 +79,7 @@ void multithreadedProcess(vec3** screenPixels, int width, int height, int N, boo
 			tHeight = getDataLength(q, height, Q);
 
 			if (p != 0 || q != 0) {
-				ThreadProcessData* data = new ThreadProcessData(&screenPixels, tWidth, tHeight, tWidthOffset, tHeightOffset, rank);
+				ThreadProcessData* data = new ThreadProcessData(&screenPixels, tWidth, tHeight, tWidthOffset, tHeightOffset, rank, &mutex);
 				handles.push_back(CreateThread(NULL, 0, _threadProcess, data, 0, 0));
 				++rank;
 			} else {
@@ -103,39 +104,47 @@ void multithreadedProcess(vec3** screenPixels, int width, int height, int N, boo
 }
 
 /* Call the anti-aliasing function for each pixel assigned to the thread */
-void threadAntiAliasing(vec3*** screenPixels, list<pair<int, int>>* aliasedEdges, int size, int offset, int rank) {
-	int i = 0;
+void threadAntiAliasing(vec3*** screenPixels, list<pair<int, int>>* aliasedEdges, int size, int rank, HANDLE* mutex) {
 	double tmp;
-	int elapsed, nextStep = PROGRESS_STEP;
+	int currentSize, elapsed, nextStep = PROGRESS_STEP;
+	pair<int, int> p;
 
-	for (const pair<int, int>& p : *aliasedEdges) {
-		if (i >= offset + size) {
-			break;
-		}
-		if (i >= offset) {
-			antiAliasingOnPixel(*screenPixels, p, rank);
-		}
+	WaitForSingleObject(*mutex, INFINITE);
+	while(!aliasedEdges->empty()) {
+		currentSize = aliasedEdges->size();
+		// Retrieve the first pixel of the list
+		p = aliasedEdges->front();
+		aliasedEdges->pop_front();
+		ReleaseMutex(*mutex);
 
 		// Progress display
-		tmp = (i - offset + 1) * 100 / (float) size;
-		if (rank == 0 && DISPLAY_PROGRESS && tmp >= nextStep * 2) {
-			elapsed = getElapsedTime();
-			if (elapsed >= 100000) {
-				cout << 50 + nextStep << "% (" << elapsed / 1000 << " seconds)" << endl;
-			} else {
-				cout << 50 + nextStep << "% (" << elapsed << " ms)" << endl;
+		if (rank == 0) {
+			tmp = (size - currentSize) * 100 / (float) size;
+			if (DISPLAY_PROGRESS && tmp >= nextStep * 2) {
+				elapsed = getElapsedTime();
+				if (elapsed >= 100000) {
+					cout << 50 + nextStep << "% (" << elapsed / 1000 << " seconds)" << endl;
+				}
+				else {
+					cout << 50 + nextStep << "% (" << elapsed << " ms)" << endl;
+				}
+				nextStep += PROGRESS_STEP;
 			}
-			nextStep += PROGRESS_STEP;
 		}
-		++i;
+
+		// Process anti-aliasing
+		antiAliasingOnPixel(*screenPixels, p, rank);
+
+		WaitForSingleObject(*mutex, INFINITE);
 	}
+	ReleaseMutex(*mutex);
 }
 
 /* Call the anti-aliasing function for each pixel assigned to the thread */
 DWORD WINAPI _threadAntiAliasing(LPVOID lpParam)
 {
 	ThreadAAData* td = (ThreadAAData*)lpParam;
-	threadAntiAliasing(td->screenPixels, td->aliasedEdges, td->size, td->offset, td->rank);
+	threadAntiAliasing(td->screenPixels, td->aliasedEdges, td->size, td->rank, td->mutex);
 	return 0;
 }
 
@@ -143,13 +152,14 @@ DWORD WINAPI _threadAntiAliasing(LPVOID lpParam)
 void multithreadedAntiAliasing(vec3** screenPixels, list<pair<int, int>>* aliasedEdges, int N) {
 	int tSize, tOffset = 0, mySize, size = aliasedEdges->size();
 	vector<HANDLE> handles(N - 1);
+	HANDLE mutex = CreateMutex(NULL, FALSE, NULL);
 
 	// Create threads
 	for (int r = 0; r < N; ++r) {
 		tSize = getDataLength(r, size, N);
 
 		if (r != 0) {
-			ThreadAAData* data = new ThreadAAData(&screenPixels, aliasedEdges, tSize, tOffset, r);
+			ThreadAAData* data = new ThreadAAData(&screenPixels, aliasedEdges, tSize, r, &mutex);
 			handles.push_back(CreateThread(NULL, 0, _threadAntiAliasing, data, 0, 0));
 		}
 		else {
@@ -160,7 +170,7 @@ void multithreadedAntiAliasing(vec3** screenPixels, list<pair<int, int>>* aliase
 	}
 
 	// Process a part of the scene
-	threadAntiAliasing(&screenPixels, aliasedEdges, mySize, 0, 0);
+	threadAntiAliasing(&screenPixels, aliasedEdges, mySize, 0, &mutex);
 
 	// Wait for threads
 	cout << "Finishing anti-aliasing..." << endl;

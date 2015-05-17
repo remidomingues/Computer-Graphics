@@ -5,28 +5,6 @@
 #include <SDL.h>
 #include "TestModel.h"
 
-/* Raytracer supporting the following features:
-* - Objects: triangles and spheres
-* - Materials:
-*		- Diffuse (absorption)
-*		- Specular (reflection)
-*		- Diffuse and specular (absorption and reflection)
-*		- Glass (refraction and reflection)
-* - Direct illumination + constant indirect illumination
-* - Soft shadows (NxN light sources) according to the following light sources distribution:
-*		- Uniform
-*		- Jittered by stochastic sampling
-* - Anti-aliasing:
-*		- Uniform 8x
-*		- Jittered by stochastic sampling 2x, 4x, 8x, 16x, 64x
-*
-* The most important constants to tweak are:
-*	- EXPORT_AND_EXIT
-*	- SCREEN_WIDTH and SCREEN_HEIGHT
-*	- LIGHT_ROWS and LIGHT_COLS
-*	- ANTI_ALIASING
-*/
-
 using namespace std;
 using glm::vec3;
 using glm::mat3;
