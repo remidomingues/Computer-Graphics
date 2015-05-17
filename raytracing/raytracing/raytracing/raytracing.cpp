@@ -46,8 +46,8 @@ const int THREADS = 8;
 const bool EXPORT_AND_EXIT = true;
 
 // Rendering resolution
-const int SCREEN_WIDTH = 2000;
-const int SCREEN_HEIGHT = 2000;
+const int SCREEN_WIDTH = 1000;
+const int SCREEN_HEIGHT = 1000;
 
 // Light distribution
 LightDistribution LIGHTS_DISTRIBUTION = LightDistribution::Jittered;

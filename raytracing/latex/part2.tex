@@ -188,29 +188,29 @@ The following pictures describes the results obtained by some of the previous an
 \minipage{0.25\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/no_aa.png}
-    \caption{AA disabled (430 ms)}
+    \caption{AA disabled}
 \endminipage\hfill
 \minipage{0.25\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/super8x.png}
-    \caption{Uniform 8x (1200 ms)}
+    \caption{Uniform 8x}
     \label{fig:aa_uniform_zoom}
 \endminipage\hfill
 \minipage{0.25\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/sto8x.png}
-    \caption{Jittered 8x (1250 ms)}
+    \caption{Jittered 8x}
 \endminipage\hfill
 \minipage{0.25\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/sto16x.png}
-    \caption{Jittered 16x (1450 ms)}
+    \caption{Jittered 16x}
 \endminipage\hfill
 \end{figure}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.4\linewidth]{img/antialiasing/benchmarksAA.jpg}
+\includegraphics[width=0.65\linewidth]{img/antialiasing/benchmarksAA.png}
 \caption{Anti-aliasing benchmarks}
 \end{figure}
 
@@ -272,7 +272,7 @@ This method won't change, but we now introduce multiple light sources. The previ
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.4\linewidth]{img/shadows/light1.jpg}
+\includegraphics[width=0.35\linewidth]{img/shadows/light1.jpg}
 \caption{Soft shadows}
 \label{fig:light_uniform}
 \end{figure}
@@ -336,12 +336,12 @@ If done only once, this process would give the same result as before. That's why
 \end{figure}
 
 Our raytracer support uniform and jittered light sources for any number of lights L distributed on a NxM grid (NxM = L).
-
+\pagebreak
 
 \section{Multithreading}
 We could stop here, but we want to make our light sources look slightly better. We add a few more rectangles under the hole in the ceiling to make it look like a real light source.
 
-The void is also annoying since it does not support illumination. That's why we extend the walls and close the box behind the camera. We love specular surfaces, so we use the diffuse and specular material for all the walls. Even with limiting the number of bounces, we now have a very very important computation cost, which can take up to a few minutes. Of course, we now stop tracing rays if the percentage of light transmitted is lower that a certain threshold, since that percentage can be very low after bounces in diffuse and specular surfaces. But this is not enough. The solution? Multithreading.
+The void is also annoying since it does not support illumination. That's why we extend the walls and close the box behind the camera. We love specular surfaces, so we use the diffuse and specular material for all the walls. Even with limiting the number of bounces, we now have a very very important computation cost, which can take up to a few minutes. The solution? Multithreading.
 
 \subsection{Scene processing}
 In a first time, we only make parallel the scene processing, i.e. the anti-aliasing stays sequential. Since we iterate through every pixel of our screen in order to trace a ray to get their color, we decide to divide the screens into equal parts, giving each part to a thread. If the number of pixels cannot be divided by the number of threads, we linearly distribute the remaining pixels, i.e. if our screen of 101x101 is divided in a grid of 3x3 threads, the two first threads will in each row and column will have one more pixel in width and height. Each thread has therefore its own width and height, a width and height offset but access to the same pixel matrix as the other threads.
@@ -355,18 +355,28 @@ We improve our performances by building a list containing the coordinates of the
 
 A synchronization is set after computing the anti-aliasing, since displaying pixel on the screen is a sequential code due to the fact that the screen is a critical resource.
 
+The \textit{Multithreaded AA} curve looks better than the previous ones. Yet, a lot of time is wasted by waiting at the synchronization barrier. Indeed, some parts of the scene are longer to compute than others, and the thread responsible for the part containing the two specular surfaces and the glass cube has to compute a lot more bounces.
+
+\subsection{Optimization}
+To balance the computation between every thread, we use another philosophy. Processing a pixel or applying anti-aliasing to a pixel is now considered as a job, and each thread is now a worker. Each worker starts with a job, and as soon as its job is finished, it starts another. By doing so, we guarantee that every thread will spend almost the same amound of time processing or post-processing the scene, and that the synchronization won't last longer than the computation time of one pixel.
+
+Regarding the scene processing, we use a pair of coordinates (\textit{pair<int, int>}) as critical resource protected by a mutex. This structure contains the (x, y) coordinates of the next pixel available for a job. When reading those coordinates, a worker updates them for the next thread (x is incremented or set to 0 if equal to width - 1, y is incremented if the new x is equal to 0).
+
+The anti-aliasing work in the same way. We already have a list of pixel positions for which post-processing is needed, so we simply replace the pair of coordinates by the one in front of the list in the critical section protected by a mutex.
+
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.4\linewidth]{img/benchmarksThreads.jpg}
+\includegraphics[width=0.65\linewidth]{img/benchmarksThreads.png}
 \caption{Multithreading benchmarks}
 \end{figure}
+\pagebreak
 
-The \textit{Multithreaded AA} curve looks better than the previous ones. Yet, about 30\% of the time elapsed is wasted by waiting at the synchronization barrier. Indeed, some parts of the scene are longer to compute than others, and the thread responsible for the part containing the two specular surfaces and the glass cube has to compute a lot more bounces.
+Eventually, we now stop tracing rays if the percentage of light transmitted is lower that a certain threshold, since that percentage can be very low after bounces in diffuse and specular surfaces. Our box containing a majority of specular surfaces, this last point reduced our render time by more than ten times.
 
-\subsection{}
+This final scene has been processed by 8 threads in 55 minutes. Scene configuration is 2000x2000, 256 jittered lights, 20 bounces, minimum weight per ray is 0.0001, anti-aliasing by stochastic sampling 16x. Without our previous optimizations, this scene would have needed more than 50 hours.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.6\linewidth]{img/final.png}
+\includegraphics[width=0.9\linewidth]{img/final.png}
 \caption{Final scene}
 \end{figure}
