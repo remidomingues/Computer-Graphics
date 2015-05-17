@@ -14,14 +14,13 @@ struct ThreadProcessData
 	int rank;
 	int width;
 	int height;
-	int widthOffset;
-	int heightOffset;
 	vec3*** screenPixels;
+	pair<int, int>* nextAvailablePixel;
 	HANDLE* mutex;
 	
 	/* Constructor */
-	ThreadProcessData(vec3*** screenPixels, int width, int height, int widthOffset, int heightOffset, int rank, HANDLE* mutex)
-		:screenPixels(screenPixels), width(width), height(height), widthOffset(widthOffset), heightOffset(heightOffset), rank(rank), mutex(mutex) {
+	ThreadProcessData(vec3*** screenPixels, pair<int, int>* nextAvailablePixel, int width, int height, int rank, HANDLE* mutex)
+		:screenPixels(screenPixels), nextAvailablePixel(nextAvailablePixel), width(width), height(height), rank(rank), mutex(mutex) {
 	}
 };
 
@@ -40,20 +39,23 @@ struct ThreadAAData
 	}
 };
 
+int processIter = 0;
+HANDLE mutex = CreateMutex(NULL, FALSE, NULL);
+pair<int, int> nextAvailablePixel;
+
 extern int start_time;
 extern bool DISPLAY_PROGRESS;
 extern int PROGRESS_STEP;
 
+bool antiAliasingEnabled();
 void antiAliasingOnPixel(vec3** screenPixels, const pair<int, int>& p, int rank);
-int coordsToRank(int p, int q, int P);
-int getDataLength(int rank, int length, int N);
 float getElapsedTime();
-void getProcessesDistribution(int N, int *P, int *Q);
-void process(vec3** screenPixels, int width, int height, int widthOffset, int heightOffset, int threadRank);
 void multithreadedAntiAliasing(vec3** screenPixels, list<pair<int, int>>* aliasedEdges, int N);
 void multithreadedProcess(vec3** screenPixels, int width, int height, int N, bool antiAliasing);
-void rankToCoords(int r, int P, int * p, int * q);
+vec3 traceRayFromCamera(float x, float y, int rank);
 void threadAntiAliasing(vec3*** screenPixels, list<pair<int, int>>* aliasedEdges, int size, int rank, HANDLE* mutex);
+void threadProcess(vec3*** screenPixels, pair<int, int>* nextAvailablePixel,
+	int width, int height, int rank, HANDLE* mutex);
 DWORD WINAPI _threadAntiAliasing(LPVOID lpParam);
 DWORD WINAPI _threadProcess(LPVOID lpParameter);
 

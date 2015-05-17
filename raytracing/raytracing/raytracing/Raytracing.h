@@ -47,8 +47,9 @@ typedef enum AntiAliasing {
 // ----------------------------------------------------------------------------
 // FUNCTIONS
 void antiAliasing();
+bool antiAliasingEnabled();
 void antiAliasingOnPixel(vec3** screenPixels, const pair<int, int>& p, int rank);
-bool closestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& closestIntersection);
+bool closestIntersection(const vec3& start, const vec3& dir, int startObjIdx, Intersection& closestIntersection);
 void computePixelsIntensity();
 vec3 directLight(const Intersection& i, int rank);
 void display();
@@ -56,7 +57,7 @@ void displayConfig();
 void draw();
 vec3 getAxis(Direction dir);
 bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color, int bounce, float refractiveIndice, float weight, int rank);
-float getDistance(vec3 p1, vec3 p2);
+float getDistance(const vec3& p1, const vec3& p2);
 float getElapsedTime();
 bool getLightPower(const Intersection& i, const vec3& lightPos, float lightDistance, vec3 &r, vec3& power);
 void getReflectedDirection(const vec3& incident, const vec3& normal, vec3& reflected);
@@ -64,7 +65,7 @@ bool getReflectionRefractionDirections(float i1, float i2, const vec3& incident,
 void initLights();
 void initLightSurface();
 void postProcess();
-void process(vec3** screenPixels, int width, int height, int widthOffset, int heightOffset, int threadRank);
+void process();
 float sobelOperator(int x, int y);
 vec3 stochasticSampling(int action, int pixelx, int pixely, int rank);
 vec3 supersamplingAA(int x, int y);

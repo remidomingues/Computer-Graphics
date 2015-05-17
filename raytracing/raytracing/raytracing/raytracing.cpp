@@ -37,24 +37,24 @@
 // ----------------------------------------------------------------------------
 // RENDERING PARAMETERS
 // Number of threads to process the scene (post-processing excluded). One single thread if value is <= 1
-const int THREADS = 2;
+const int THREADS = 8;
 
 // If true, render the image, export it in a .bmp file then exit
 const bool EXPORT_AND_EXIT = false;
 
 // Rendering resolution
-const int SCREEN_WIDTH = 250;
-const int SCREEN_HEIGHT = 250;
+const int SCREEN_WIDTH = 1600;
+const int SCREEN_HEIGHT = 1600;
 
 // Light distribution
-LightDistribution LIGHTS_DISTRIBUTION = LightDistribution::Uniform;
+LightDistribution LIGHTS_DISTRIBUTION = LightDistribution::Jittered;
 
 // Number of sampled lights will be LIGHT_ROWS * LIGHT_COLS
-int LIGHT_ROWS = 1;
-int LIGHT_COLS = 1;
+int LIGHT_ROWS = 16;
+int LIGHT_COLS = 16;
 
 // Maximum number of light bounces by refraction and reflection
-const int MAX_BOUNCES = 15;
+const int MAX_BOUNCES = 20;
 
 // Anti aliasing
 const AntiAliasing ANTI_ALIASING = AntiAliasing::StochasticSampling16x;
@@ -113,7 +113,7 @@ mat3 R = mat3(0, 0, 0, 0, 0, 0, 0, 0, 0);
 float yaw = 0;
 
 /* Light */
-vec3* uniformLightPositions;
+vec3* uniformLightPositions = NULL;
 vec3** jitteredLightPositions;
 pair<int, int> lightIdx;
 const vec3 lightColor = 14.f * vec3(1, 1, 1);
@@ -235,6 +235,10 @@ void initLights() {
 	if (LIGHTS_DISTRIBUTION == LightDistribution::Uniform) {
 		float startx, startz, endx, endz;
 
+		if (uniformLightPositions != NULL) {
+			free(uniformLightPositions);
+		}
+
 		uniformLightPositions = new vec3[LIGHT_COLS * LIGHT_ROWS];
 
 		// Generate light sources positions
@@ -249,6 +253,7 @@ void initLights() {
 				uniformLightPositions[i].x = x;
 				uniformLightPositions[i].y = LIGHT_CENTER.y;
 				uniformLightPositions[i].z = z;
+				++i;
 			}
 		}
 	}
@@ -416,7 +421,7 @@ vec3 directLight(const Intersection& i, int rank) {
 /*              RAYS                */
 /* ================================ */
 /* Return the distance between two 3D points */
-float getDistance(vec3 p1, vec3 p2) {
+float getDistance(const vec3& p1, const vec3& p2) {
 	float dx = p2.x - p1.x;
 	float dy = p2.y - p1.y;
 	float dz = p2.z - p1.z;
@@ -424,7 +429,7 @@ float getDistance(vec3 p1, vec3 p2) {
 }
 
 /* Return true if the ray intersects with a triangle, false otherwise. If true, closestIntersection is initialized with the result */
-bool closestIntersection(vec3 start, vec3 dir, int startObjIdx, Intersection& closestIntersection) {
+bool closestIntersection(const vec3& start, const vec3& dir, int startObjIdx, Intersection& closestIntersection) {
 	closestIntersection.distance = std::numeric_limits<float>::max();
 	vec3 position;
 	float distance;
@@ -608,12 +613,17 @@ void antiAliasingOnPixel(vec3** screenPixels, const pair<int, int>& p, int rank)
 	}
 }
 
+/* Return true if the anti-aliasing is enabled, false otherwise */
+bool antiAliasingEnabled() {
+	return ANTI_ALIASING != AntiAliasing::Disabled;
+}
+
 /* Compute the edges needing anti-aliasing accordint to the Sobel operator
 * then apply the specified anti-aliasing */
 void antiAliasing() {
 	int i = 0, size;
-	double tmp;
-	int elapsed, nextStep = PROGRESS_STEP;
+	float tmp, elapsed;
+	int nextStep = PROGRESS_STEP;
 	aliasedEdges->clear();
 	computePixelsIntensity();
 
@@ -640,11 +650,7 @@ void antiAliasing() {
 			tmp = (i + 1) * 100 / (float) size;
 			if (DISPLAY_PROGRESS && tmp >= nextStep * 2) {
 				elapsed = float(SDL_GetTicks() - start_time);
-				if (elapsed >= 100000) {
-					cout << 50 + nextStep << "% (" << elapsed / 1000 << " seconds)" << endl;
-				} else {
-					cout << 50 + nextStep << "% (" << elapsed << " ms)" << endl;
-				}
+				cout << 50 + nextStep << "% (" << elapsed / 1000.0f << " seconds)" << endl;
 				nextStep += PROGRESS_STEP;
 			}
 			++i;
@@ -678,29 +684,24 @@ vec3 traceRayFromCamera(float x, float y, int rank) {
 }
 
 /* Scene processing, compute the scene pixels */
-void process(vec3** screenPixels, int width, int height, int widthOffset, int heightOffset, int threadRank) {
+void process() {
 	start_time = SDL_GetTicks();
 	vec3 color;
-	double tmp;
-	int elapsed, nextStep = PROGRESS_STEP;
+	float tmp, elapsed;
+	int nextStep = PROGRESS_STEP;
 
-	for (int y = heightOffset; y < heightOffset + height; ++y) {
-		for (int x = widthOffset; x < widthOffset + width; ++x) {
-			screenPixels[y][x] = traceRayFromCamera(x, y, threadRank);
+	for (int y = 0; y < SCREEN_HEIGHT; ++y) {
+		for (int x = 0; x < SCREEN_WIDTH; ++x) {
+			screenPixels[y][x] = traceRayFromCamera(x, y, 0);
 		}
 
-		// Display percentage of computations achieved (biased by bounces)
-		tmp = (y - heightOffset + 1) * 100 / (float)height;
-		if (threadRank == 0 && DISPLAY_PROGRESS &&
+		// Display percentage of computations achieved
+		tmp = (y + 1) * 100 / (float) SCREEN_HEIGHT;
+		if (DISPLAY_PROGRESS &&
 			((ANTI_ALIASING == AntiAliasing::Disabled && tmp >= nextStep) ||
 			(ANTI_ALIASING != AntiAliasing::Disabled && tmp >= nextStep * 2))) {
 			elapsed = float(SDL_GetTicks() - start_time);
-			cout << nextStep << "% (";
-			if (elapsed >= 100000) {
-				cout << elapsed / 1000 << " seconds)" << endl;
-			} else {
-				cout << elapsed << " ms)" << endl;
-			}
+			cout << nextStep << "% (" << elapsed / 1000.0f << " seconds)" << endl;
 			nextStep += PROGRESS_STEP;
 		}
 	}
@@ -736,16 +737,18 @@ void display() {
 /* Draw the scene by tracing rays from the camera */
 void draw()
 {
-	if (THREADS <= 1) {
-		if (DISPLAY_PROGRESS) {
-			cout << "Processing scene..." << endl;
-		}
-		process(screenPixels, SCREEN_WIDTH, SCREEN_HEIGHT, 0, 0, 0);
+	if (DISPLAY_PROGRESS) {
+		cout << "Processing scene..." << endl;
 	}
-	else {
+
+	if (THREADS <= 1) {
+		process();
+	} else {
 		multithreadedProcess(screenPixels, SCREEN_WIDTH, SCREEN_HEIGHT, THREADS, ANTI_ALIASING != AntiAliasing::Disabled);
 	}
+
 	postProcess();
+
 	display();
 }
 
@@ -794,6 +797,9 @@ int main(int argc, char* argv[])
 	for (int i = 0; i < SCREEN_HEIGHT; ++i) {
 		screenPixels[i] = new vec3[SCREEN_WIDTH];
 	}
+	if (THREADS > 1) {
+		mutex = CreateMutex(NULL, FALSE, NULL);
+	}
 
 	srand(time(NULL));
 	screen = InitializeSDL(SCREEN_WIDTH, SCREEN_HEIGHT);
@@ -817,13 +823,7 @@ int main(int argc, char* argv[])
 		t2 = SDL_GetTicks();
 		dt = float(t2 - time_ms);
 		time_ms = t2;
-
-		if (dt >= 100000) {
-			cout << "Render time: " << dt / 1000 << " seconds" << endl << endl;
-		}
-		else {
-			cout << "Render time: " << dt << " ms" << endl << endl;
-		}
+		cout << "Render time: " << dt / 1000.0f << " seconds" << endl << endl;
 
 		if (EXPORT_AND_EXIT) {
 			break;
@@ -833,13 +833,8 @@ int main(int argc, char* argv[])
 	// Export scene into .bmp file
 	char c[50];
 	string filename("screenshot (");
-	if (dt >= 100000) {
-		_itoa_s(dt / 1000, c, 10);
-		filename.append(c).append(" s).bmp");
-	} else {
-		_itoa_s(dt, c, 10);
-		filename.append(c).append(" ms).bmp");
-	}
+	_itoa_s(dt / 1000.0f, c, 10);
+	filename.append(c).append(" s).bmp");
 	SDL_SaveBMP(screen, filename.c_str());
 
 	// Cleaning
@@ -847,6 +842,20 @@ int main(int argc, char* argv[])
 		free(screenPixels[i]);
 	}
 	free(screenPixels);
+
+	if (LIGHTS_DISTRIBUTION == LightDistribution::Uniform) {
+		free(uniformLightPositions);
+	} else {
+		for (int i = 0; i < THREADS; ++i) {
+			free(jitteredLightPositions[i]);
+		}
+		free(jitteredLightPositions);
+	}
+
+	if (THREADS > 1) {
+		CloseHandle(mutex);
+	}
+
 	for (Object3D* o : objects) {
 		free(o);
 	}
