@@ -40,7 +40,7 @@ Now that we have our intersections, we must still compute the normal $\vec{n}$ a
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.4\linewidth]{img/spheres.jpg}
+\includegraphics[width=0.35\linewidth]{img/spheres.jpg}
 \caption{Spheres (930 ms)}
 \end{figure}
 
@@ -121,10 +121,10 @@ Our scene looks better now. Though the geometry could be improved. Many artifact
 \subsection{Edges detection}
 Since anti-aliasing can be a costly operation, we want to target only the pixels on the edges, this will avoid an important waste of time.
 
-Instead of displaying a pixel immediately after its computation, we store them in a 2D matrix representing our screen and containing the RGB vector of each pixel. When our scene is complete, we transform this matrix in a grayscale matrix containing values from 0 to 255 instead of RGB vectors. The transformation in equation \ref{eq:grayscale} respects the CCIR 601 recommendations. $I$ is the grayscale intensity, and $\vec{rgb}$ a RGB vector. Figure \ref{fig:grayscale} is the output of this transformation.
+Instead of displaying a pixel immediately after its computation, we store them in a 2D matrix representing our screen and containing the RGB vector of each pixel. When our scene is complete, we transform this matrix in a grayscale matrix containing values from 0 to 255 instead of RGB vectors. The transformation in equation \ref{eq:grayscale} respects the CCIR 601 recommendations. $I$ is the grayscale intensity, and $\rho$ a RGB vector (reflectance). Figure \ref{fig:grayscale} is the output of this transformation.
 
 \begin{equation}
-I = \vec{rgb} \cdot (0.2989, 0.5870, 0.1140)
+I = \rho \cdot (0.2989, 0.5870, 0.1140)
 \label{eq:grayscale}
 \end{equation}
 
@@ -137,13 +137,13 @@ Once we have computed the intensity, we must detect the intensity variations in 
 
 \begin{figure}[H]
 \centering
-\minipage[t]{0.4\textwidth}
+\minipage[t]{0.35\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/grayscale.jpg}
     \caption{Grayscale scene}
     \label{fig:grayscale}
 \endminipage
-\minipage[t]{0.4\textwidth}
+\minipage[t]{0.35\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/sobel.jpg}
     \caption{Edges detection (Sobel operator)}
@@ -157,7 +157,7 @@ Once we know which pixels need anti-aliasing, we can improve the accuracy of our
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.35\linewidth]{img/antialiasing/uniform.jpg}
+\includegraphics[width=0.5\linewidth]{img/antialiasing/uniform.jpg}
 \caption{8 new rays are shot per pixel}
 \label{fig:aa_uniform}
 \end{figure}
@@ -173,7 +173,7 @@ To do so, we divide each pixel in a grid, e.g. 4x4 for an anti-aliasing 16x (fig
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.35\linewidth]{img/antialiasing/stochastic.jpg}
+\includegraphics[width=0.5\linewidth]{img/antialiasing/stochastic.jpg}
 \caption{16 new rays are sampled on a grid inside each a pixel}
 \label{fig:aa_stochastic}
 \end{figure}
@@ -208,18 +208,25 @@ The following pictures describes the results obtained by some of the previous an
 \endminipage\hfill
 \end{figure}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.4\linewidth]{img/antialiasing/benchmarksAA.jpg}
+\caption{Anti-aliasing benchmarks}
+\end{figure}
+
+
 Based on the previous figures and as expected, a stochastic sampling 16x seems to give the best edges.
 
 Another interesting method, not implemented here, is called adaptive sampling. This algorithm shoots 1 ray at each corner of a pixel and then compare their grayscale intensity. If these intensities varies significantly, the pixel is divided into 4 cells and the same algorithm is applied for each cell, until a certain deepness is reached.
 
 \begin{figure}[H]
 \centering
-\minipage[t]{0.4\textwidth}
+\minipage[t]{0.35\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/glass_refraction.jpg}
     \caption{Anti-aliasing disabled (430 ms)}
 \endminipage
-\minipage[t]{0.4\textwidth}
+\minipage[t]{0.35\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/stoAA16x_full.png}
     \caption{Stochastic sampling 16x (1450 ms)}
@@ -227,8 +234,25 @@ Another interesting method, not implemented here, is called adaptive sampling. T
 \end{figure}
 
 
-\section{Glass - Reflection}
-20 bounces, remove smoked glass
+\section{Glass - Reflection, diffuse and specular materials}
+Our scene is getting good, but we can still add a few improvements. First, we remove the light filter applied on the smoked glass, and replace it with a real percentage (equation \ref{eq:refraction_percent}. We also compute the color of a glass material with equation \ref{eq:glass_full} by shooting a reflected in addition to a refracted ray for each intersection with a glass material. $\rho(I, \vec{v})$ if a function returning the reflectance (RGB color) of a point when shooting a ray from an intersection I in a direction $\vec{v}$. $cos2\theta_1$ is the percentage of refracted light, $\vec{d_R}$ is the refracted vector direction and $\vec{d_r}$ the reflected vector direction.
+
+\begin{equation}
+\rho_I = cos2\theta_1 * \rho(I, \vec{d_R}) + (1 - cos2\theta_1) \rho(I, \vec{d_r})
+\label{eq:glass_full}
+\end{equation}
+
+As for a specular material, we limit the number of bounces. We also change the void color and the color of the diffuse materials.
+
+To make it even better, we introduce a new material, which is diffuse and specular. When a ray will hit this material, a part of the light will be absorbed by the material while some light will bounce like a specular material. The color of such a material is given in equation \ref{eq:diff_spec}, where \textit{r} is the percentage of reflected light, here 0.8. We could also have taken the incident angle into account, but wanted a material more uniform.
+
+\begin{equation}
+\rho_I = r \rho_I + (1 - r) \rho(I, \vec{d_r})
+\label{eq:diff_spec}
+\end{equation}
+
+The result looks great, especially regarding the specular sphere reflected less and less by the glass cube with the number of bounces increasing. This rendering has been computed in 8500 ms with 20 bounces max and anti-aliasing by stochastic sampling 16x. The sphere in the bottom left if made of glass, while the right sphere in the wall is specular.
+
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.35\linewidth]{img/glass_awesome.png}
@@ -237,8 +261,29 @@ Another interesting method, not implemented here, is called adaptive sampling. T
 
 
 \section{Soft shadows}
+We have a great scene, but the light source looks very unrealistic. Actually, using a single point as light source also results in hard shadows, which could be improved. Let's implement improve it.
+
+We start by adding new triangles to the ceiling of the Cornell Box in order to create a rectangular hole. To prevent that rays going through this whole simply return the void color, we add two other triangles on top of the box. If a ray hit that light surface, we don't compute its illumination according to its color but rather return the light power as a pixel color.
+
 \subsection{Uniform light sources}
-The following scenes were processed for a 500x500 resolution without anti-aliasing.
+Until now, we processed the color of an intersection, multiplied it by the power hitting the intersection (which was (0, 0, 0) if another object was found between the intersection and the light source) and added an indirect illumination vector.
+
+This method won't change, but we now introduce multiple light sources. The previous light position is now considered as the light center. We compute a NxN grid centered on this point, and put a light source in the center of each cell.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.4\linewidth]{img/shadows/light1.jpg}
+\caption{Soft shadows}
+\label{fig:light_uniform}
+\end{figure}
+
+In the following equation, $P(I, L_i)$ return the light power hitting an intersection $I$ given a light source $L_i$ according to the light distance and the normal of the object. $(0, 0, 0)$ is returned if the light source cannot be reached. $C$ is the final pixel color.
+
+\begin{equation}
+C = \frac{ \sum\limits_{i = 1}^{N*N} P(I, L_i) }{N * N}
+\end{equation}
+
+The following scenes were processed in a 500x500 resolution without anti-aliasing.
 \begin{figure}[H]
 \minipage{0.33\textwidth}
     \centering
@@ -257,7 +302,21 @@ The following scenes were processed for a 500x500 resolution without anti-aliasi
 \endminipage\hfill
 \end{figure}
 
+The computation cost of this technique is high, but the shadows look better. Yet, even with 256 lampes (16x16 grid), we can still see that our light source is composed of multiple light sources.
+
+
 \subsection{Jittered light sources}
+To make it look even smoother we use the same idea as described for the anti-aliasing using stochastic sampling. The grid is of course wider than a pixel, the grid width and height is actually $\frac{1}{6}^th$ of the box size. Instead of having a light in the center of each cell, we now randomly sample the position of each light in the cells.
+
+If done only once, this process would give the same result as before. That's why we sample the light positions for each intersection. This has a small additional cost but the result is way better. Note that if we don't have enough light, shadows are very noisy.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.25\linewidth]{img/shadows/light2.jpg}
+\caption{Light sources jittered by stochastic sampling}
+\label{fig:light_jittered}
+\end{figure}
+
 \begin{figure}[H]
 \minipage{0.33\textwidth}
     \centering
@@ -276,8 +335,38 @@ The following scenes were processed for a 500x500 resolution without anti-aliasi
 \endminipage\hfill
 \end{figure}
 
-%\begin{figure}[H]
-%\centering
-%\includegraphics[width=0.35\linewidth]{img/final.png}
-%\caption{Final scene}
-%\end{figure}
+Our raytracer support uniform and jittered light sources for any number of lights L distributed on a NxM grid (NxM = L).
+
+
+\section{Multithreading}
+We could stop here, but we want to make our light sources look slightly better. We add a few more rectangles under the hole in the ceiling to make it look like a real light source.
+
+The void is also annoying since it does not support illumination. That's why we extend the walls and close the box behind the camera. We love specular surfaces, so we use the diffuse and specular material for all the walls. Even with limiting the number of bounces, we now have a very very important computation cost, which can take up to a few minutes. Of course, we now stop tracing rays if the percentage of light transmitted is lower that a certain threshold, since that percentage can be very low after bounces in diffuse and specular surfaces. But this is not enough. The solution? Multithreading.
+
+\subsection{Scene processing}
+In a first time, we only make parallel the scene processing, i.e. the anti-aliasing stays sequential. Since we iterate through every pixel of our screen in order to trace a ray to get their color, we decide to divide the screens into equal parts, giving each part to a thread. If the number of pixels cannot be divided by the number of threads, we linearly distribute the remaining pixels, i.e. if our screen of 101x101 is divided in a grid of 3x3 threads, the two first threads will in each row and column will have one more pixel in width and height. Each thread has therefore its own width and height, a width and height offset but access to the same pixel matrix as the other threads.
+
+Since each thread writes in its own part of the pixels matrix, two threads will never write in the same pixel, so the screen is not a critical resource. However, a synchronization is needed after processing the scene to sequentially compute the grayscale of the whole pixels matrix.
+
+Multithreading benchmarks are plotted in figure \ref{fig:threading}. Scene is 250x250, 1 uniform light source, 15 bounces max. If an anti-aliasing is used, it's stochastic sampling 16x. Computations are performed on a quad-core hyperthreaded. The \textit{No AA} curve shows a nice speedup when increasing the number of threads. However, by looking at the \textit{Sequential AA} curve, it's quite obvious that we have too much sequential code in our implementation when using anti-aliasing.
+
+\subsection{Anti-aliasing}
+We improve our performances by building a list containing the coordinates of the pixels needing anti-aliasing, and dividing this list into equal parts assigned to each thread (we actually don't divide the list, but give an offset and number of pixels to compute to each thread). Each pixel eventually compute anti-aliasing for each thread it has been assigned.
+
+A synchronization is set after computing the anti-aliasing, since displaying pixel on the screen is a sequential code due to the fact that the screen is a critical resource.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.4\linewidth]{img/benchmarksThreads.jpg}
+\caption{Multithreading benchmarks}
+\end{figure}
+
+The \textit{Multithreaded AA} curve looks better than the previous ones. Yet, about 30\% of the time elapsed is wasted by waiting at the synchronization barrier. Indeed, some parts of the scene are longer to compute than others, and the thread responsible for the part containing the two specular surfaces and the glass cube has to compute a lot more bounces.
+
+\subsection{}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.6\linewidth]{img/final.png}
+\caption{Final scene}
+\end{figure}

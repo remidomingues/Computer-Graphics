@@ -1,9 +1,9 @@
 \section*{Introduction}
-This document describes the implementation and output of a raytracer managing direct light, soft  and camera translation and rotation.
+This document describes the implementation and output of a raytracer supporting triangles and spheres, direct light and soft shadows, diffuse, specular and glass materials, anti-aliasing and multithreading.
 
-The model used in this experiment is a the Cornell Box available at \url{http://www.graphics.cornell.edu/online/box} and described in the file \textit{TestModel.h}.
+The model used in this experiment is the Cornell Box available at \url{http://www.graphics.cornell.edu/online/box}.
 
-\setcounter{section}{0} 
+\setcounter{section}{0}
 
 \section{Ray-triangle intersection}
 By representing rays as lines in 3D, defined by a starting point and a direction (3D vector), we are able to compute the intersection between a ray and a triangle as described below.
