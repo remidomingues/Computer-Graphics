@@ -15,8 +15,9 @@ Ray tracing
 - Anti-aliasing:
     - Uniform 8x
     - Jittered by stochastic sampling 2x, 4x, 8x, 16x, 64x
+- Multithreading (processing and anti-aliasing)
 
-![Alt text](raytracing/cornell_box_m.png?raw=true "Cornell Box")
+![Alt text](raytracing/cornell_box.png?raw=true "Cornell Box")
 
 Rasterisation
 -------------
