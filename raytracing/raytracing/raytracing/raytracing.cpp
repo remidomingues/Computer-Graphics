@@ -33,6 +33,9 @@
 #include "Raytracing.h"
 #include "Multithreading.h"
 
+/* ==================================================================================
+* IMPORTANT : PLEASE MAKE SURE TO COMPILE WITH THE FLAG -o2 to optimize the binary!
+* ================================================================================== */
 
 // ----------------------------------------------------------------------------
 // RENDERING PARAMETERS
@@ -40,11 +43,11 @@
 const int THREADS = 8;
 
 // If true, render the image, export it in a .bmp file then exit
-const bool EXPORT_AND_EXIT = false;
+const bool EXPORT_AND_EXIT = true;
 
 // Rendering resolution
-const int SCREEN_WIDTH = 1600;
-const int SCREEN_HEIGHT = 1600;
+const int SCREEN_WIDTH = 2000;
+const int SCREEN_HEIGHT = 2000;
 
 // Light distribution
 LightDistribution LIGHTS_DISTRIBUTION = LightDistribution::Jittered;
@@ -55,6 +58,8 @@ int LIGHT_COLS = 16;
 
 // Maximum number of light bounces by refraction and reflection
 const int MAX_BOUNCES = 20;
+// Minimal weight a ray must have to be refracted or reflected
+const float MIN_RAY_WEIGHT = 0.0001f;
 
 // Anti aliasing
 const AntiAliasing ANTI_ALIASING = AntiAliasing::StochasticSampling16x;
@@ -90,7 +95,7 @@ const vec3 SHADOW_COLOR = 0.0f * vec3(1, 1, 1);
 const vec3 VOID_COLOR(0.75, 0.75, 0.75);
 
 /* Progress notification */
-bool DISPLAY_PROGRESS = false;
+bool DISPLAY_PROGRESS = true;
 int PROGRESS_STEP = 1;
 
 // ----------------------------------------------------------------------------
@@ -495,8 +500,9 @@ bool getReflectionRefractionDirections(float i1, float i2, const vec3& incident,
 bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color, int bounce, float refractiveIndice, float weight, int rank) {
 	Intersection intersection;
 
-	if (weight < 0.001f) {
+	if (weight < MIN_RAY_WEIGHT) {
 		color = VOID_COLOR;
+		return false;
 	}
 
 	// Fill a pixel with the color of the closest triangle intersecting the ray, black otherwise
@@ -537,7 +543,7 @@ bool getColor(const vec3& start, const vec3& d_ray, int startObjIdx, vec3& color
 				bool b1 = getColor(intersection.position, refracted, intersection.objectIndex, color, bounce + 1, nextRefractiveIndice, weight * refractionPercentage, rank);
 				bool b2 = getColor(intersection.position, reflected, intersection.objectIndex, color2, bounce + 1, nextRefractiveIndice, weight * (1 - refractionPercentage), rank);
 				color = refractionPercentage * color + (1 - refractionPercentage) * color2;
-				return true;
+				return b1 || b2;
 			}
 
 			// Reflection caused by an angle between the incident ray and the normal higher than the critical angle (internal total reflection)
@@ -754,7 +760,8 @@ void draw()
 
 /* Config display */
 void displayConfig() {
-	cout << "Cornell Box" << endl << "-----------" << endl << "- Resolution: " << SCREEN_WIDTH
+	cout << "Cornell Box" << endl << "-----------" << endl << "- Threads: "
+		<< THREADS << endl << "- Resolution: " << SCREEN_WIDTH
 		<< "x" << SCREEN_HEIGHT << endl << "- Lights: " << LIGHT_ROWS * LIGHT_COLS;
 	if (LIGHTS_DISTRIBUTION == LightDistribution::Uniform) {
 		cout << " (uniform)" << endl;
