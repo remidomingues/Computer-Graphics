@@ -1,5 +1,5 @@
 \section{Spheres}
-Let's add a new object: a sphere. The same kind of computations must be applied to a triangle and a sphere. Both are 3D objects, they have a reflectance $\rho$, are made of a specific material (only diffuse for now), have a normal and must be able to compute their intersection with a ray.
+The first improvement brought to our raytracer is a sphere. This object should not be hard to include in the existing algorithm since the same kind of computations must be applied to a triangle and a sphere. Both are 3D objects, they have a reflectance $\rho$, are made of a specific material (only diffuse for now), have a normal and must be able to compute their intersection with a ray.
 
 Where a triangle is described by its 3 vertices, a sphere has a center C(cx, cy, cz) and a radius R. The intersection between a sphere and a ray is explained below, with P(px, py, pz) the starting point of the ray, $\vec{v}$ the ray direction and I the intersection.
 
@@ -74,7 +74,7 @@ This operation can be costly if we have many bounces between two specular materi
 \end{figure}
 
 
-\section{Glass - Refraction}
+\section{Glass refraction}
 Glass is another interesting material. Yet, this one is tricky since is should refract and reflect rays, each ray having its own percentage of light transmitted according to the incident ray angle. In a first step, we will only implement refraction.
 
 The refraction and reflection formulas to compute those directions and percentages are described in by T Whitted in \cite{whitted1979improved}. However, a faster method, which can actually be proven as equivalent to the previous one using trigonometry and vector algebra, is detailed by PS Heckbert in \cite{heckbert1989derivation}.
@@ -181,27 +181,27 @@ To do so, we divide each pixel in a grid, e.g. 4x4 for an anti-aliasing 16x (fig
 Our raytracer allows a 2x, 4x, 8x, 16x and 64x anti-aliasing by stochastic sampling.
 
 
-\subsection{Evaluations}
+\subsection{Results}
 The following pictures describes the results obtained by some of the previous anti-aliasing algorithms. The computation time is also mentioned.
 
 \begin{figure}[H]
-\minipage{0.25\textwidth}
+\minipage[t]{0.25\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/no_aa.png}
     \caption{AA disabled}
 \endminipage\hfill
-\minipage{0.25\textwidth}
+\minipage[t]{0.25\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/super8x.png}
     \caption{Uniform 8x}
     \label{fig:aa_uniform_zoom}
 \endminipage\hfill
-\minipage{0.25\textwidth}
+\minipage[t]{0.25\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/sto8x.png}
     \caption{Jittered 8x}
 \endminipage\hfill
-\minipage{0.25\textwidth}
+\minipage[t]{0.25\textwidth}
     \centering
     \includegraphics[width=\linewidth]{img/antialiasing/sto16x.png}
     \caption{Jittered 16x}
@@ -234,7 +234,7 @@ Another interesting method, not implemented here, is called adaptive sampling. T
 \end{figure}
 
 
-\section{Glass - Reflection, diffuse and specular materials}
+\section{Glass reflection, semi-specular materials}
 Our scene is getting good, but we can still add a few improvements. First, we remove the light filter applied on the smoked glass, and replace it with a real percentage (equation \ref{eq:refraction_percent}. We also compute the color of a glass material with equation \ref{eq:glass_full} by shooting a reflected in addition to a refracted ray for each intersection with a glass material. $\rho(I, \vec{v})$ if a function returning the reflectance (RGB color) of a point when shooting a ray from an intersection I in a direction $\vec{v}$. $cos2\theta_1$ is the percentage of refracted light, $\vec{d_R}$ is the refracted vector direction and $\vec{d_r}$ the reflected vector direction.
 
 \begin{equation}
@@ -306,7 +306,7 @@ The computation cost of this technique is high, but the shadows look better. Yet
 
 
 \subsection{Jittered light sources}
-To make it look even smoother we use the same idea as described for the anti-aliasing using stochastic sampling. The grid is of course wider than a pixel, the grid width and height is actually $\frac{1}{6}^th$ of the box size. Instead of having a light in the center of each cell, we now randomly sample the position of each light in the cells.
+To make it look even smoother we use the same idea as described for the anti-aliasing using stochastic sampling. The grid is of course wider than a pixel, the grid width and height is actually $\frac{1}{6}^{th}$ of the box size. Instead of having a light in the center of each cell, we now randomly sample the position of each light in the cells.
 
 If done only once, this process would give the same result as before. That's why we sample the light positions for each intersection. This has a small additional cost but the result is way better. Note that if we don't have enough light, shadows are very noisy.
 
@@ -366,8 +366,9 @@ The anti-aliasing work in the same way. We already have a list of pixel position
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.65\linewidth]{img/benchmarksThreads.png}
+\includegraphics[width=0.8\linewidth]{img/benchmarksThreads.png}
 \caption{Multithreading benchmarks}
+\label{fig:threading}
 \end{figure}
 \pagebreak
 
@@ -380,3 +381,15 @@ This final scene has been processed by 8 threads in 55 minutes. Scene configurat
 \includegraphics[width=0.9\linewidth]{img/final.png}
 \caption{Final scene}
 \end{figure}
+\pagebreak
+
+\section*{Future work}
+The following features would add a lot of value to our raytracing algorithm.
+
+\begin{itemize}
+\item \textbf{Unix support:} The current multithreading functionality uses the Windows threading library. Allowing users to run this program on both Windows and Unix-based systems would be a great improvement.
+\item \textbf{Global illumination}: One way to improve our current scene would be to implement global illumination using algorithms such as photon mapping. This algorithm could even be extended to add \textbf{caustics}, which will add a very nice lighting effect using glass materials.
+\item \textbf{Loading general models}: This feature opens many scene possibilities and would allow us to use our raytracer on pre-defined complex models
+\item \textbf{Water surfaces}: Generating water surfaces could be achieved by using normal maps.
+\item \textbf{Lens flare}: This light effect is an artifact caused by material inhomogeneities in the lens of a camera. This effect could be add by post-processing and will make the scene more realistic.
+\end{itemize}
